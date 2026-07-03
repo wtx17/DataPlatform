@@ -251,8 +251,9 @@ time
 
 ### 注册 Tushare 数据
 
-Tushare 后端用于直接访问 Tushare Pro API。当前内置 `income` / `income_vip`
-利润表字段，不要求研究代码手动声明 85 个输出字段。
+Tushare 后端用于直接访问 Tushare Pro API。当前内置 `income` /
+`income_vip`、`balancesheet` / `balancesheet_vip`、`cashflow` /
+`cashflow_vip` 财务报表字段，不要求研究代码手动声明输出 schema。
 
 使用前先设置 Tushare token：
 
@@ -260,7 +261,7 @@ Tushare 后端用于直接访问 Tushare Pro API。当前内置 `income` / `inco
 conda env config vars set TUSHARE_TOKEN='<token>'
 ```
 
-连接并注册利润表：
+连接并注册三张财务报表：
 
 ```python
 from quant_data import DataClient, TushareConfig, TushareDatasetSpec
@@ -271,19 +272,24 @@ data.add_tushare_connection(
     TushareConfig(token_env="TUSHARE_TOKEN"),
 )
 
-data.register(
-    TushareDatasetSpec(
-        name="income",
-        connection="tushare",
-        api_name="income_vip",
-        frequency="q",
+for name, api_name in {
+    "income": "income_vip",
+    "balancesheet": "balancesheet_vip",
+    "cashflow": "cashflow_vip",
+}.items():
+    data.register(
+        TushareDatasetSpec(
+            name=name,
+            connection="tushare",
+            api_name=api_name,
+            frequency="q",
+        )
     )
-)
 ```
 
-`income_vip` 默认以报告期 `end_date` 作为时间索引，以 `ts_code` 作为证券列。
-`start` 和 `end` 会被转换为闭区间内的季度末 `period`，逐期调用
-Tushare；`instruments=None` 时不传 `ts_code`，获取全市场数据。
+这些财务报表默认以报告期 `end_date` 作为时间索引，以 `ts_code` 作为证券列。
+`start` 和 `end` 会被转换为闭区间内的季度末 `period`，逐期调用 Tushare。
+VIP 接口在 `instruments=None` 时不传 `ts_code`，获取全市场数据。
 
 ```python
 panels = data.get_panel(
@@ -295,19 +301,41 @@ panels = data.get_panel(
 basic_eps = panels["basic_eps"]
 ```
 
-如果传入股票池，Tushare 后端会按股票逐只调用，符合 `ts_code` 单值接口：
+资产负债表和现金流量表同样可以直接生成宽表：
+
+```python
+balance_panels = data.get_panel(
+    "balancesheet",
+    fields=["total_assets", "total_liab", "total_hldr_eqy_inc_min_int"],
+    start="2018-01-01",
+    end="2018-12-31",
+)
+
+cashflow_panels = data.get_panel(
+    "cashflow",
+    fields=["n_cashflow_act", "free_cashflow", "n_incr_cash_cash_equ"],
+    start="2018-01-01",
+    end="2018-12-31",
+)
+```
+
+如果传入股票池，Tushare 后端会按股票逐只调用：
 
 ```python
 table = data.get_table(
-    "income",
-    fields=["basic_eps", "total_revenue"],
+    "balancesheet",
+    fields=["total_assets", "total_liab"],
     start="2018-03-31",
     end="2018-03-31",
     instruments=["600000.SH", "000001.SZ"],
 )
 ```
 
-利润表同一只股票同一报告期可能存在多条记录。后端会按
+普通 `balancesheet` / `cashflow` 接口按 Tushare 文档要求必须传入
+`instruments`，后端会按 `period × ts_code` 调用；需要按季度全市场获取时，
+应注册对应的 `_vip` 接口。
+
+财务报表同一只股票同一报告期可能存在多条记录。后端会按
 `f_ann_date`、`ann_date`、`update_flag` 降序保留最新记录，使结果可以直接构建
 `end_date × ts_code` 宽表。审计记录只保存后端名称、连接名、API 名称、schema
 哈希和固定参数，不记录 token。

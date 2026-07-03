@@ -16,6 +16,7 @@ import pyarrow as pa
 from ..exceptions import (
     BackendConnectionError,
     DatasetRegistrationError,
+    InvalidQueryError,
     RemoteQueryError,
     SchemaMismatchError,
 )
@@ -117,9 +118,264 @@ _INCOME_DEFAULT_FIELDS = (
     "continued_net_profit",
     "update_flag",
 )
-_INCOME_DATE_FIELDS = frozenset({"ann_date", "f_ann_date", "end_date"})
-_INCOME_STRING_FIELDS = frozenset(
+_FINANCE_DATE_FIELDS = frozenset({"ann_date", "f_ann_date", "end_date"})
+_FINANCE_STRING_FIELDS = frozenset(
     {"ts_code", "report_type", "comp_type", "end_type", "update_flag"}
+)
+
+_BALANCESHEET_DEFAULT_FIELDS = (
+    "ts_code",
+    "ann_date",
+    "f_ann_date",
+    "end_date",
+    "report_type",
+    "comp_type",
+    "end_type",
+    "total_share",
+    "cap_rese",
+    "undistr_porfit",
+    "surplus_rese",
+    "special_rese",
+    "money_cap",
+    "trad_asset",
+    "notes_receiv",
+    "accounts_receiv",
+    "oth_receiv",
+    "prepayment",
+    "div_receiv",
+    "int_receiv",
+    "inventories",
+    "amor_exp",
+    "nca_within_1y",
+    "sett_rsrv",
+    "loanto_oth_bank_fi",
+    "premium_receiv",
+    "reinsur_receiv",
+    "reinsur_res_receiv",
+    "pur_resale_fa",
+    "oth_cur_assets",
+    "total_cur_assets",
+    "fa_avail_for_sale",
+    "htm_invest",
+    "lt_eqt_invest",
+    "invest_real_estate",
+    "time_deposits",
+    "oth_assets",
+    "lt_rec",
+    "fix_assets",
+    "cip",
+    "const_materials",
+    "fixed_assets_disp",
+    "produc_bio_assets",
+    "oil_and_gas_assets",
+    "intan_assets",
+    "r_and_d",
+    "goodwill",
+    "lt_amor_exp",
+    "defer_tax_assets",
+    "decr_in_disbur",
+    "oth_nca",
+    "total_nca",
+    "cash_reser_cb",
+    "depos_in_oth_bfi",
+    "prec_metals",
+    "deriv_assets",
+    "rr_reins_une_prem",
+    "rr_reins_outstd_cla",
+    "rr_reins_lins_liab",
+    "rr_reins_lthins_liab",
+    "refund_depos",
+    "ph_pledge_loans",
+    "refund_cap_depos",
+    "indep_acct_assets",
+    "client_depos",
+    "client_prov",
+    "transac_seat_fee",
+    "invest_as_receiv",
+    "total_assets",
+    "lt_borr",
+    "st_borr",
+    "cb_borr",
+    "depos_ib_deposits",
+    "loan_oth_bank",
+    "trading_fl",
+    "notes_payable",
+    "acct_payable",
+    "adv_receipts",
+    "sold_for_repur_fa",
+    "comm_payable",
+    "payroll_payable",
+    "taxes_payable",
+    "int_payable",
+    "div_payable",
+    "oth_payable",
+    "acc_exp",
+    "deferred_inc",
+    "st_bonds_payable",
+    "payable_to_reinsurer",
+    "rsrv_insur_cont",
+    "acting_trading_sec",
+    "acting_uw_sec",
+    "non_cur_liab_due_1y",
+    "oth_cur_liab",
+    "total_cur_liab",
+    "bond_payable",
+    "lt_payable",
+    "specific_payables",
+    "estimated_liab",
+    "defer_tax_liab",
+    "defer_inc_non_cur_liab",
+    "oth_ncl",
+    "total_ncl",
+    "depos_oth_bfi",
+    "deriv_liab",
+    "depos",
+    "agency_bus_liab",
+    "oth_liab",
+    "prem_receiv_adva",
+    "depos_received",
+    "ph_invest",
+    "reser_une_prem",
+    "reser_outstd_claims",
+    "reser_lins_liab",
+    "reser_lthins_liab",
+    "indept_acc_liab",
+    "pledge_borr",
+    "indem_payable",
+    "policy_div_payable",
+    "total_liab",
+    "treasury_share",
+    "ordin_risk_reser",
+    "forex_differ",
+    "invest_loss_unconf",
+    "minority_int",
+    "total_hldr_eqy_exc_min_int",
+    "total_hldr_eqy_inc_min_int",
+    "total_liab_hldr_eqy",
+    "lt_payroll_payable",
+    "oth_comp_income",
+    "oth_eqt_tools",
+    "oth_eqt_tools_p_shr",
+    "lending_funds",
+    "acc_receivable",
+    "st_fin_payable",
+    "payables",
+    "hfs_assets",
+    "hfs_sales",
+    "cost_fin_assets",
+    "fair_value_fin_assets",
+    "cip_total",
+    "oth_pay_total",
+    "long_pay_total",
+    "debt_invest",
+    "oth_debt_invest",
+    "contract_assets",
+    "contract_liab",
+    "accounts_receiv_bill",
+    "accounts_pay",
+    "oth_rcv_total",
+    "fix_assets_total",
+    "update_flag",
+)
+
+_CASHFLOW_DEFAULT_FIELDS = (
+    "ts_code",
+    "ann_date",
+    "f_ann_date",
+    "end_date",
+    "comp_type",
+    "report_type",
+    "end_type",
+    "net_profit",
+    "finan_exp",
+    "c_fr_sale_sg",
+    "recp_tax_rends",
+    "n_depos_incr_fi",
+    "n_incr_loans_cb",
+    "n_inc_borr_oth_fi",
+    "prem_fr_orig_contr",
+    "n_incr_insured_dep",
+    "n_reinsur_prem",
+    "n_incr_disp_tfa",
+    "ifc_cash_incr",
+    "n_incr_disp_faas",
+    "n_incr_loans_oth_bank",
+    "n_cap_incr_repur",
+    "c_fr_oth_operate_a",
+    "c_inf_fr_operate_a",
+    "c_paid_goods_s",
+    "c_paid_to_for_empl",
+    "c_paid_for_taxes",
+    "n_incr_clt_loan_adv",
+    "n_incr_dep_cbob",
+    "c_pay_claims_orig_inco",
+    "pay_handling_chrg",
+    "pay_comm_insur_plcy",
+    "oth_cash_pay_oper_act",
+    "st_cash_out_act",
+    "n_cashflow_act",
+    "oth_recp_ral_inv_act",
+    "c_disp_withdrwl_invest",
+    "c_recp_return_invest",
+    "n_recp_disp_fiolta",
+    "n_recp_disp_sobu",
+    "stot_inflows_inv_act",
+    "c_pay_acq_const_fiolta",
+    "c_paid_invest",
+    "n_disp_subs_oth_biz",
+    "oth_pay_ral_inv_act",
+    "n_incr_pledge_loan",
+    "stot_out_inv_act",
+    "n_cashflow_inv_act",
+    "c_recp_borrow",
+    "proc_issue_bonds",
+    "oth_cash_recp_ral_fnc_act",
+    "stot_cash_in_fnc_act",
+    "free_cashflow",
+    "c_prepay_amt_borr",
+    "c_pay_dist_dpcp_int_exp",
+    "incl_dvd_profit_paid_sc_ms",
+    "oth_cashpay_ral_fnc_act",
+    "stot_cashout_fnc_act",
+    "n_cash_flows_fnc_act",
+    "eff_fx_flu_cash",
+    "n_incr_cash_cash_equ",
+    "c_cash_equ_beg_period",
+    "c_cash_equ_end_period",
+    "c_recp_cap_contrib",
+    "incl_cash_rec_saims",
+    "uncon_invest_loss",
+    "prov_depr_assets",
+    "depr_fa_coga_dpba",
+    "amort_intang_assets",
+    "lt_amort_deferred_exp",
+    "decr_deferred_exp",
+    "incr_acc_exp",
+    "loss_disp_fiolta",
+    "loss_scr_fa",
+    "loss_fv_chg",
+    "invest_loss",
+    "decr_def_inc_tax_assets",
+    "incr_def_inc_tax_liab",
+    "decr_inventories",
+    "decr_oper_payable",
+    "incr_oper_payable",
+    "others",
+    "im_net_cashflow_oper_act",
+    "conv_debt_into_cap",
+    "conv_copbonds_due_within_1y",
+    "fa_fnc_leases",
+    "im_n_incr_cash_equ",
+    "net_dism_capital_add",
+    "net_cash_rece_sec",
+    "credit_impa_loss",
+    "use_right_asset_dep",
+    "oth_loss_asset",
+    "end_bal_cash",
+    "beg_bal_cash",
+    "end_bal_cash_equ",
+    "beg_bal_cash_equ",
+    "update_flag",
 )
 
 
@@ -135,6 +391,7 @@ class TushareTableCatalog:
     dedupe_keys: tuple[str, str]
     dedupe_sort: tuple[str, ...]
     order_columns: tuple[str, ...]
+    requires_instrument: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -145,12 +402,12 @@ class TushareSource:
     fixed_params: Mapping[str, object]
 
 
-def _income_schema() -> pa.Schema:
+def _financial_statement_schema(field_names: tuple[str, ...]) -> pa.Schema:
     fields: list[pa.Field] = []
-    for name in _INCOME_DEFAULT_FIELDS:
-        if name in _INCOME_DATE_FIELDS:
+    for name in field_names:
+        if name in _FINANCE_DATE_FIELDS:
             data_type = pa.date32()
-        elif name in _INCOME_STRING_FIELDS:
+        elif name in _FINANCE_STRING_FIELDS:
             data_type = pa.string()
         else:
             data_type = pa.float64()
@@ -158,7 +415,9 @@ def _income_schema() -> pa.Schema:
     return pa.schema(fields)
 
 
-_INCOME_SCHEMA = _income_schema()
+_INCOME_SCHEMA = _financial_statement_schema(_INCOME_DEFAULT_FIELDS)
+_BALANCESHEET_SCHEMA = _financial_statement_schema(_BALANCESHEET_DEFAULT_FIELDS)
+_CASHFLOW_SCHEMA = _financial_statement_schema(_CASHFLOW_DEFAULT_FIELDS)
 _TUSHARE_TABLES = {
     "income": TushareTableCatalog(
         api_name="income",
@@ -175,6 +434,56 @@ _TUSHARE_TABLES = {
     "income_vip": TushareTableCatalog(
         api_name="income_vip",
         schema=_INCOME_SCHEMA,
+        query_style="period_range",
+        period_param="period",
+        start_param=None,
+        end_param=None,
+        instrument_param="ts_code",
+        dedupe_keys=("ts_code", "end_date"),
+        dedupe_sort=("f_ann_date", "ann_date", "update_flag"),
+        order_columns=("end_date", "ts_code"),
+    ),
+    "balancesheet": TushareTableCatalog(
+        api_name="balancesheet",
+        schema=_BALANCESHEET_SCHEMA,
+        query_style="period_range",
+        period_param="period",
+        start_param=None,
+        end_param=None,
+        instrument_param="ts_code",
+        dedupe_keys=("ts_code", "end_date"),
+        dedupe_sort=("f_ann_date", "ann_date", "update_flag"),
+        order_columns=("end_date", "ts_code"),
+        requires_instrument=True,
+    ),
+    "balancesheet_vip": TushareTableCatalog(
+        api_name="balancesheet_vip",
+        schema=_BALANCESHEET_SCHEMA,
+        query_style="period_range",
+        period_param="period",
+        start_param=None,
+        end_param=None,
+        instrument_param="ts_code",
+        dedupe_keys=("ts_code", "end_date"),
+        dedupe_sort=("f_ann_date", "ann_date", "update_flag"),
+        order_columns=("end_date", "ts_code"),
+    ),
+    "cashflow": TushareTableCatalog(
+        api_name="cashflow",
+        schema=_CASHFLOW_SCHEMA,
+        query_style="period_range",
+        period_param="period",
+        start_param=None,
+        end_param=None,
+        instrument_param="ts_code",
+        dedupe_keys=("ts_code", "end_date"),
+        dedupe_sort=("f_ann_date", "ann_date", "update_flag"),
+        order_columns=("end_date", "ts_code"),
+        requires_instrument=True,
+    ),
+    "cashflow_vip": TushareTableCatalog(
+        api_name="cashflow_vip",
+        schema=_CASHFLOW_SCHEMA,
         query_style="period_range",
         period_param="period",
         start_param=None,
@@ -371,6 +680,11 @@ class TushareBackend:
         if periods == ():
             return []
         instruments = query.instruments
+        if catalog.requires_instrument and instruments is None:
+            raise InvalidQueryError(
+                f"Tushare api {catalog.api_name!r} requires instruments; use "
+                f"{catalog.api_name}_vip for whole-market period queries"
+            )
         if instruments == ():
             return []
         period_values: tuple[str | None, ...] = periods if periods is not None else (None,)
@@ -432,17 +746,23 @@ class TushareBackend:
         query: DataQuery,
         columns: tuple[str, ...],
     ) -> pd.DataFrame:
-        if frames:
-            frame = pd.concat(frames, ignore_index=True)
+        normalized_frames: list[pd.DataFrame] = []
+        for current in frames:
+            if current.empty:
+                continue
+            missing = set(columns).difference(current.columns)
+            if missing:
+                raise SchemaMismatchError(
+                    f"Tushare api {catalog.api_name!r} result is missing columns: "
+                    f"{sorted(missing)}"
+                )
+            current = current.loc[:, list(columns)].copy()
+            normalized_frames.append(self._coerce_frame(current, catalog.schema))
+        if normalized_frames:
+            frame = pd.concat(normalized_frames, ignore_index=True)
         else:
             frame = pd.DataFrame(columns=columns)
-        missing = set(columns).difference(frame.columns)
-        if missing:
-            raise SchemaMismatchError(
-                f"Tushare api {catalog.api_name!r} result is missing columns: {sorted(missing)}"
-            )
-        frame = frame.loc[:, list(columns)].copy()
-        frame = self._coerce_frame(frame, catalog.schema)
+            frame = self._coerce_frame(frame, catalog.schema)
         frame = self._filter_time(frame, spec.time_column, query)
         frame = self._dedupe(frame, catalog)
         return self._sort_frame(frame, spec, catalog)
