@@ -1,0 +1,318 @@
+"""ClickHouse backend implemented with clickhouse-connect."""
+
+from __future__ import annotations
+
+import hashlib
+import json
+import os
+import re
+from dataclasses import dataclass
+from typing import Any, Callable
+
+import pyarrow as pa
+
+from ..exceptions import (
+    BackendConnectionError,
+    DatasetRegistrationError,
+    RemoteQueryError,
+    SchemaMismatchError,
+)
+from ..models import (
+    ClickHouseConfig,
+    ClickHouseDatasetSpec,
+    DataQuery,
+    DatasetDefinition,
+    PriceAdjustment,
+    RegisteredDataset,
+)
+
+_IDENTIFIER = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+_MINGHU_DAILY_PRICE_FIELDS = (
+    "open",
+    "high",
+    "low",
+    "close",
+    "pclose",
+    "ztprice",
+    "dtprice",
+    "omax_op",
+    "omin_op",
+)
+
+
+@dataclass(frozen=True, slots=True)
+class ClickHouseSource:
+    connection: str
+    table: str
+    column_types: dict[str, str]
+    schema_hash: str
+
+
+def _quote_identifier(value: str) -> str:
+    parts = value.split(".")
+    if not parts or not all(_IDENTIFIER.fullmatch(part) for part in parts):
+        raise DatasetRegistrationError(f"Invalid ClickHouse identifier: {value!r}")
+    return ".".join(f"`{part}`" for part in parts)
+
+
+class ClickHouseBackend:
+    def __init__(self, client_factory: Callable[..., Any] | None = None) -> None:
+        self._configs: dict[str, ClickHouseConfig] = {}
+        self._clients: dict[str, Any] = {}
+        self._client_factory = client_factory
+
+    def add_connection(self, name: str, config: ClickHouseConfig) -> None:
+        if not name or not _IDENTIFIER.fullmatch(name):
+            raise DatasetRegistrationError(f"Invalid ClickHouse connection name: {name!r}")
+        if not config.host:
+            raise DatasetRegistrationError("ClickHouse host cannot be empty")
+        if config.port <= 0 or config.port > 65535:
+            raise DatasetRegistrationError("ClickHouse port must be between 1 and 65535")
+        if config.connect_timeout <= 0 or config.query_timeout <= 0:
+            raise DatasetRegistrationError("ClickHouse timeouts must be positive")
+        if name in self._clients:
+            self._clients.pop(name).close()
+        self._configs[name] = config
+
+    def prepare(self, definition: DatasetDefinition) -> RegisteredDataset:
+        if not isinstance(definition, ClickHouseDatasetSpec):
+            raise DatasetRegistrationError("ClickHouse backend requires ClickHouseDatasetSpec")
+        client = self._client(definition.connection)
+        table = _quote_identifier(definition.table)
+        try:
+            description = client.query_arrow(f"DESCRIBE TABLE {table}", use_strings=True)
+            names = description.column("name").to_pylist()
+            types = description.column("type").to_pylist()
+            column_types = {str(name): str(type_name) for name, type_name in zip(names, types)}
+        except Exception as exc:
+            raise RemoteQueryError(
+                f"Unable to inspect ClickHouse table {definition.table!r}: {exc}"
+            ) from exc
+
+        required = {definition.time_column, definition.instrument_column}
+        if definition.partition_column:
+            required.add(definition.partition_column)
+        required.update(definition.order_columns)
+        missing = required.difference(column_types)
+        if missing:
+            raise DatasetRegistrationError(
+                f"ClickHouse table {definition.table!r} is missing configured columns: "
+                f"{sorted(missing)}"
+            )
+
+        try:
+            schema = pa.schema(
+                [
+                    pa.field(name, self._arrow_type(type_name))
+                    for name, type_name in column_types.items()
+                ]
+            )
+        except Exception as exc:
+            raise SchemaMismatchError(
+                f"Unable to map ClickHouse schema for {definition.table!r}: {exc}"
+            ) from exc
+        normalized = json.dumps(sorted(column_types.items()), separators=(",", ":"))
+        source = ClickHouseSource(
+            definition.connection,
+            definition.table,
+            column_types,
+            hashlib.sha256(normalized.encode()).hexdigest(),
+        )
+        adjustment = None
+        if definition.table.lower() == "stock_base.daily" and "hfq" in column_types:
+            adjustment = PriceAdjustment(
+                factor_column="hfq",
+                fields=tuple(
+                    field for field in _MINGHU_DAILY_PRICE_FIELDS if field in column_types
+                ),
+            )
+        return RegisteredDataset(definition, schema, source, adjustment)
+
+    def scan(self, dataset: RegisteredDataset, query: DataQuery) -> pa.Table:
+        spec = dataset.spec
+        source = dataset.source
+        if not isinstance(spec, ClickHouseDatasetSpec) or not isinstance(source, ClickHouseSource):
+            raise SchemaMismatchError("Invalid ClickHouse registered dataset")
+        client = self._client(source.connection)
+        selected = (spec.time_column, spec.instrument_column, *query.fields)
+        projection = self._projection(selected, source.column_types)
+        sql = f"SELECT {projection} FROM {_quote_identifier(source.table)}"
+        clauses: list[str] = []
+        parameters: dict[str, object] = {}
+
+        time_type = source.column_types[spec.time_column]
+        if query.start is not None:
+            clauses.append(
+                f"{_quote_identifier(spec.time_column)} >= {{start:{time_type}}}"
+            )
+            parameters["start"] = (
+                query.start.date()
+                if time_type.startswith("Date") and not time_type.startswith("DateTime")
+                else query.start
+            )
+        if query.end is not None:
+            clauses.append(f"{_quote_identifier(spec.time_column)} <= {{end:{time_type}}}")
+            parameters["end"] = (
+                query.end.date()
+                if time_type.startswith("Date") and not time_type.startswith("DateTime")
+                else query.end
+            )
+        if spec.partition_column and query.start is not None and query.end is not None:
+            partition = _quote_identifier(spec.partition_column)
+            partition_type = source.column_types[spec.partition_column]
+            clauses.extend(
+                [
+                    f"{partition} >= {{partition_start:{partition_type}}}",
+                    f"{partition} <= {{partition_end:{partition_type}}}",
+                ]
+            )
+            parameters["partition_start"] = query.start.date()
+            parameters["partition_end"] = query.end.date()
+        if query.instruments is not None:
+            clauses.append(
+                f"{_quote_identifier(spec.instrument_column)} "
+                "IN {instruments:Array(String)}"
+            )
+            # clickhouse-connect serializes lists as ClickHouse Array literals (`[...]`).
+            # Tuples become SQL tuple literals (`(...)`) and cannot bind to Array(String).
+            parameters["instruments"] = list(query.instruments)
+        if clauses:
+            sql += " WHERE " + " AND ".join(clauses)
+        order_columns = spec.order_columns or (spec.time_column, spec.instrument_column)
+        sql += " ORDER BY " + ", ".join(_quote_identifier(item) for item in order_columns)
+        if query.limit is not None:
+            sql += " LIMIT {limit:UInt64}"
+            parameters["limit"] = query.limit
+        try:
+            return client.query_arrow(sql, parameters=parameters, use_strings=True)
+        except Exception as exc:
+            raise RemoteQueryError(
+                f"ClickHouse query failed for dataset {spec.name!r}: {exc}"
+            ) from exc
+
+    def fingerprint(self, dataset: RegisteredDataset) -> dict[str, object]:
+        spec = dataset.spec
+        source = dataset.source
+        if not isinstance(spec, ClickHouseDatasetSpec) or not isinstance(source, ClickHouseSource):
+            raise SchemaMismatchError("Invalid ClickHouse registered dataset")
+        config = self._configs[source.connection]
+        return {
+            "backend": "clickhouse",
+            "connection": source.connection,
+            "host": config.host,
+            "port": config.port,
+            "secure": config.secure,
+            "table": source.table,
+            "schema_hash": source.schema_hash,
+        }
+
+    def close(self) -> None:
+        for client in self._clients.values():
+            client.close()
+        self._clients.clear()
+
+    def _client(self, name: str) -> Any:
+        existing = self._clients.get(name)
+        if existing is not None:
+            return existing
+        config = self._configs.get(name)
+        if config is None:
+            raise DatasetRegistrationError(f"ClickHouse connection {name!r} is not configured")
+        password = config.password
+        if password is None and config.password_env:
+            password = os.environ.get(config.password_env)
+            if password is None:
+                raise BackendConnectionError(
+                    f"ClickHouse password environment variable {config.password_env!r} is not set"
+                )
+        factory = self._client_factory
+        if factory is None:
+            try:
+                from clickhouse_connect import get_client
+            except ImportError as exc:
+                raise BackendConnectionError(
+                    "ClickHouse support is not installed; install quant-data[clickhouse]"
+                ) from exc
+            factory = get_client
+        try:
+            client = factory(
+                host=config.host,
+                port=config.port,
+                username=config.username,
+                password=password or "",
+                secure=config.secure,
+                connect_timeout=config.connect_timeout,
+                send_receive_timeout=config.query_timeout,
+            )
+        except Exception as exc:
+            raise BackendConnectionError(
+                f"Unable to connect to ClickHouse profile {name!r} at {config.host}:{config.port}: {exc}"
+            ) from exc
+        self._clients[name] = client
+        return client
+
+    @staticmethod
+    def _projection(columns: tuple[str, ...], column_types: dict[str, str]) -> str:
+        expressions = []
+        for column in columns:
+            identifier = _quote_identifier(column)
+            if column_types[column].startswith("FixedString"):
+                expressions.append(f"toString({identifier}) AS {identifier}")
+            else:
+                expressions.append(identifier)
+        return ", ".join(expressions)
+
+    @staticmethod
+    def _arrow_type(type_name: str) -> pa.DataType:
+        value = type_name.strip()
+        for wrapper in ("Nullable", "LowCardinality"):
+            prefix = f"{wrapper}("
+            if value.startswith(prefix) and value.endswith(")"):
+                return ClickHouseBackend._arrow_type(value[len(prefix) : -1])
+
+        integer_types: dict[str, pa.DataType] = {
+            "Int8": pa.int8(),
+            "Int16": pa.int16(),
+            "Int32": pa.int32(),
+            "Int64": pa.int64(),
+            "UInt8": pa.uint8(),
+            "UInt16": pa.uint16(),
+            "UInt32": pa.uint32(),
+            "UInt64": pa.uint64(),
+        }
+        if value in integer_types:
+            return integer_types[value]
+        if value == "Float32":
+            return pa.float32()
+        if value == "Float64":
+            return pa.float64()
+        if value in {"String", "UUID", "IPv4", "IPv6"} or value.startswith(
+            ("FixedString(", "Enum8(", "Enum16(")
+        ):
+            return pa.string()
+        if value in {"Date", "Date32"}:
+            return pa.date32()
+        if value == "Bool":
+            return pa.bool_()
+
+        datetime_match = re.fullmatch(r"DateTime(?:\('([^']+)'\))?", value)
+        if datetime_match:
+            return pa.timestamp("s", tz=datetime_match.group(1))
+        datetime64_match = re.fullmatch(
+            r"DateTime64\((\d+)(?:,\s*'([^']+)')?\)", value
+        )
+        if datetime64_match:
+            precision = int(datetime64_match.group(1))
+            unit = "s" if precision == 0 else "ms" if precision <= 3 else "us" if precision <= 6 else "ns"
+            return pa.timestamp(unit, tz=datetime64_match.group(2))
+
+        decimal_match = re.fullmatch(r"Decimal(?:128|256)?\((\d+),\s*(\d+)\)", value)
+        if decimal_match:
+            precision, scale = map(int, decimal_match.groups())
+            if precision <= 38:
+                return pa.decimal128(precision, scale)
+            return pa.decimal256(precision, scale)
+        if value.startswith("Array(") and value.endswith(")"):
+            return pa.list_(ClickHouseBackend._arrow_type(value[6:-1]))
+
+        raise SchemaMismatchError(f"Unsupported ClickHouse type: {type_name!r}")
