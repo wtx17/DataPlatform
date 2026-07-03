@@ -19,6 +19,7 @@ from .audit import AuditWriter
 from .backends.base import DataBackend
 from .backends.clickhouse import ClickHouseBackend
 from .backends.parquet import DuckDBParquetBackend
+from .backends.tushare import TushareBackend
 from .exceptions import (
     DatasetNotFoundError,
     DatasetRegistrationError,
@@ -34,6 +35,8 @@ from .models import (
     DatasetSpec,
     QueryAudit,
     RegisteredDataset,
+    TushareConfig,
+    TushareDatasetSpec,
 )
 from .transforms.panel import build_panels
 
@@ -46,17 +49,23 @@ class DataClient:
         audit_dir: str | Path = ".quant_data/audit",
         *,
         clickhouse_client_factory: Callable[..., Any] | None = None,
+        tushare_client_factory: Callable[..., Any] | None = None,
     ) -> None:
         self._datasets: dict[str, RegisteredDataset] = {}
         self._clickhouse = ClickHouseBackend(clickhouse_client_factory)
+        self._tushare = TushareBackend(tushare_client_factory)
         self._backends: dict[str, DataBackend] = {
             "parquet": DuckDBParquetBackend(),
             "clickhouse": self._clickhouse,
+            "tushare": self._tushare,
         }
         self._audit = AuditWriter(audit_dir)
 
     def add_clickhouse_connection(self, name: str, config: ClickHouseConfig) -> None:
         self._clickhouse.add_connection(name, config)
+
+    def add_tushare_connection(self, name: str, config: TushareConfig) -> None:
+        self._tushare.add_connection(name, config)
 
     def register(self, spec: DatasetDefinition) -> None:
         self._validate_spec(spec)
@@ -144,7 +153,9 @@ class DataClient:
             record.dataset_version = spec.version
             record.source = backend.fingerprint(registered)
 
-            if mode == "panel" and isinstance(spec, ClickHouseDatasetSpec):
+            if mode == "panel" and isinstance(
+                spec, (ClickHouseDatasetSpec, TushareDatasetSpec)
+            ):
                 if not spec.panel_compatible:
                     raise InvalidQueryError(
                         f"Dataset {dataset!r} is event data and cannot be pivoted; use get_table"
@@ -284,7 +295,7 @@ class DataClient:
         if missing:
             raise FieldNotFoundError(f"Fields not found in dataset: {sorted(missing)}")
 
-        localize = isinstance(dataset.spec, ClickHouseDatasetSpec)
+        localize = isinstance(dataset.spec, (ClickHouseDatasetSpec, TushareDatasetSpec))
         parsed_start = DataClient._parse_time(
             start, "start", dataset.spec.timezone if localize else None
         )
@@ -293,16 +304,8 @@ class DataClient:
         )
         if parsed_start is not None and parsed_end is not None and parsed_start > parsed_end:
             raise InvalidQueryError("start must be earlier than or equal to end")
-        if (
-            isinstance(dataset.spec, ClickHouseDatasetSpec)
-            and (
-                dataset.spec.require_time_range is True
-                or (
-                    dataset.spec.require_time_range is None
-                    and dataset.spec.partition_column is not None
-                )
-            )
-            and (parsed_start is None or parsed_end is None)
+        if DataClient._requires_time_range(dataset.spec) and (
+            parsed_start is None or parsed_end is None
         ):
             raise InvalidQueryError(
                 f"Dataset {dataset.spec.name!r} requires both start and end"
@@ -315,11 +318,24 @@ class DataClient:
                 raise InvalidQueryError("Instrument identifiers must be non-empty strings")
             if len(set(requested_instruments)) != len(requested_instruments):
                 raise InvalidQueryError("Instruments cannot contain duplicates")
-        if limit is not None and (isinstance(limit, bool) or not isinstance(limit, int) or limit <= 0):
+        if limit is not None and (
+            isinstance(limit, bool) or not isinstance(limit, int) or limit <= 0
+        ):
             raise InvalidQueryError("limit must be a positive integer")
         return DataQuery(
             requested_fields, parsed_start, parsed_end, requested_instruments, limit
         )
+
+    @staticmethod
+    def _requires_time_range(spec: DatasetDefinition) -> bool:
+        if isinstance(spec, ClickHouseDatasetSpec):
+            return bool(
+                spec.require_time_range is True
+                or (spec.require_time_range is None and spec.partition_column is not None)
+            )
+        if isinstance(spec, TushareDatasetSpec):
+            return bool(spec.require_time_range)
+        return False
 
     @staticmethod
     def _parse_time(value: Any | None, name: str, timezone_name: str | None) -> datetime | None:

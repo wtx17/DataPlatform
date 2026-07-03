@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Any, Mapping, Sequence
 
 import pyarrow as pa
 
@@ -51,7 +51,30 @@ class ClickHouseDatasetSpec:
     backend: str = field(default="clickhouse", init=False)
 
 
-DatasetDefinition = DatasetSpec | ClickHouseDatasetSpec
+@dataclass(frozen=True, slots=True)
+class TushareConfig:
+    token: str | None = field(default=None, repr=False)
+    token_env: str | None = "TUSHARE_TOKEN"
+
+
+@dataclass(frozen=True, slots=True)
+class TushareDatasetSpec:
+    name: str
+    connection: str
+    api_name: str = "income"
+    time_column: str = "end_date"
+    instrument_column: str = "ts_code"
+    fixed_params: Mapping[str, object] = field(default_factory=dict)
+    order_columns: tuple[str, ...] = ()
+    frequency: str | None = None
+    timezone: str | None = "Asia/Shanghai"
+    version: str | None = None
+    panel_compatible: bool = True
+    require_time_range: bool | None = False
+    backend: str = field(default="tushare", init=False)
+
+
+DatasetDefinition = DatasetSpec | ClickHouseDatasetSpec | TushareDatasetSpec
 
 
 @dataclass(frozen=True, slots=True)

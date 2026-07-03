@@ -1,0 +1,75 @@
+[build-system]
+requires = ["hatchling>=1.26"]
+build-backend = "hatchling.build"
+
+[project]
+name = "quant-data"
+version = "0.3.0"
+description = "Parquet, ClickHouse, and Tushare data access for quantitative research"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "duckdb>=1.2,<2",
+  "pandas>=2.2,<3",
+  "polars>=1.20,<2",
+  "pyarrow>=18,<24",
+]
+
+[project.optional-dependencies]
+clickhouse = [
+  "clickhouse-connect>=0.8",
+]
+tushare = [
+  "tushare>=1.4",
+]
+dev = [
+  "mypy>=1.14,<2",
+  "pytest>=8.3,<10",
+  "pytest-cov>=6,<8",
+  "ruff>=0.9,<1",
+]
+
+[tool.hatch.build.targets.wheel]
+dev-mode-dirs = [".."]
+only-include = [
+  "__init__.py",
+  "_version.py",
+  "audit.py",
+  "backends",
+  "client.py",
+  "exceptions.py",
+  "models.py",
+  "transforms",
+]
+
+[tool.hatch.build.targets.wheel.sources]
+"" = "quant_data"
+
+[tool.pytest.ini_options]
+testpaths = ["../tests"]
+addopts = "-q"
+markers = [
+  "clickhouse: tests that require access to the real ClickHouse service",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+files = ["."]
+
+[[tool.mypy.overrides]]
+module = [
+  "clickhouse_connect",
+  "clickhouse_connect.*",
+  "tushare",
+  "tushare.*",
+  "pandas",
+  "pandas.*",
+  "pyarrow",
+  "pyarrow.*",
+]
+ignore_missing_imports = true
