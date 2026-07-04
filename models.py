@@ -75,7 +75,7 @@ class TushareDatasetSpec:
     point_in_time: bool = False
     disclosure_lag: int = 0
     calendar_exchange: str = "SSE"
-    fetch_buffer_days: int = 365
+    fetch_buffer_days: int = 180
     fetch_margin_days: int = 31
     backend: str = field(default="tushare", init=False)
 
