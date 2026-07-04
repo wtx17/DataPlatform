@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any, Literal, Mapping, Sequence
 
 import pyarrow as pa
 
@@ -71,6 +71,12 @@ class TushareDatasetSpec:
     version: str | None = None
     panel_compatible: bool = True
     require_time_range: bool | None = False
+    panel_mode: Literal["period", "pit_daily"] = "period"
+    point_in_time: bool = False
+    disclosure_lag: int = 1
+    calendar_exchange: str = "SSE"
+    fetch_buffer_days: int = 365
+    fetch_margin_days: int = 31
     backend: str = field(default="tushare", init=False)
 
 

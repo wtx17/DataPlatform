@@ -331,14 +331,63 @@ table = data.get_table(
 )
 ```
 
-普通 `balancesheet` / `cashflow` 接口按 Tushare 文档要求必须传入
+普通 `income` / `balancesheet` / `cashflow` 接口按 Tushare 文档要求必须传入
 `instruments`，后端会按 `period × ts_code` 调用；需要按季度全市场获取时，
-应注册对应的 `_vip` 接口。
+应注册对应的 `_vip` 接口。VIP 接口也可以传入股票池，此时仍会逐只调用。
 
 财务报表同一只股票同一报告期可能存在多条记录。后端会按
 `f_ann_date`、`ann_date`、`update_flag` 降序保留最新记录，使结果可以直接构建
 `end_date × ts_code` 宽表。审计记录只保存后端名称、连接名、API 名称、schema
 哈希和固定参数，不记录 token。
+
+如果要把财务数据用作实盘可得的因子输入，启用
+`panel_mode="pit_daily"`。此模式只影响 `get_panel`：后端按公告日期拉取
+disclosure events，内部使用 `f_ann_date`、交易日历和默认 T+1 延迟构造日频宽表；
+`get_table` 仍返回普通查询结果。
+
+```python
+data.register(
+    TushareDatasetSpec(
+        name="balancesheet_factor",
+        connection="tushare",
+        api_name="balancesheet",
+        panel_mode="pit_daily",
+        frequency="d",
+    )
+)
+
+factor_panels = data.get_panel(
+    "balancesheet_factor",
+    fields=["total_assets", "total_liab"],
+    start="2018-01-01",
+    end="2018-12-31",
+    instruments=["600000.SH", "000004.SZ"],
+)
+```
+
+`pit_daily` 需要传入 `instruments`，并且应使用 `income`、`balancesheet` 或
+`cashflow` 普通接口；如果要在 `instruments=None` 时生成全市场日频面板，应注册
+对应的 `_vip` 接口。
+
+```python
+data.register(
+    TushareDatasetSpec(
+        name="balancesheet_factor_all",
+        connection="tushare",
+        api_name="balancesheet_vip",
+        panel_mode="pit_daily",
+        frequency="d",
+    )
+)
+
+all_factor_panels = data.get_panel(
+    "balancesheet_factor_all",
+    fields=["total_assets", "total_liab"],
+    start="2018-01-01",
+    end="2018-12-31",
+    instruments=None,
+)
+```
 
 
 ## 查询规则

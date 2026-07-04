@@ -7,7 +7,7 @@ import json
 import os
 import re
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from typing import Any, Callable, Mapping, cast
 
 import pandas as pd
@@ -392,6 +392,10 @@ class TushareTableCatalog:
     dedupe_sort: tuple[str, ...]
     order_columns: tuple[str, ...]
     requires_instrument: bool = False
+    disclosure_column: str = "f_ann_date"
+    period_column: str = "end_date"
+    disclosure_start_param: str | None = None
+    disclosure_end_param: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -422,14 +426,17 @@ _TUSHARE_TABLES = {
     "income": TushareTableCatalog(
         api_name="income",
         schema=_INCOME_SCHEMA,
-        query_style="date_range",
-        period_param=None,
+        query_style="period_range",
+        period_param="period",
         start_param="start_date",
         end_param="end_date",
         instrument_param="ts_code",
         dedupe_keys=("ts_code", "end_date"),
         dedupe_sort=("f_ann_date", "ann_date", "update_flag"),
         order_columns=("end_date", "ts_code"),
+        requires_instrument=True,
+        disclosure_start_param="start_date",
+        disclosure_end_param="end_date",
     ),
     "income_vip": TushareTableCatalog(
         api_name="income_vip",
@@ -442,6 +449,8 @@ _TUSHARE_TABLES = {
         dedupe_keys=("ts_code", "end_date"),
         dedupe_sort=("f_ann_date", "ann_date", "update_flag"),
         order_columns=("end_date", "ts_code"),
+        disclosure_start_param="start_date",
+        disclosure_end_param="end_date",
     ),
     "balancesheet": TushareTableCatalog(
         api_name="balancesheet",
@@ -455,6 +464,8 @@ _TUSHARE_TABLES = {
         dedupe_sort=("f_ann_date", "ann_date", "update_flag"),
         order_columns=("end_date", "ts_code"),
         requires_instrument=True,
+        disclosure_start_param="start_date",
+        disclosure_end_param="end_date",
     ),
     "balancesheet_vip": TushareTableCatalog(
         api_name="balancesheet_vip",
@@ -467,6 +478,8 @@ _TUSHARE_TABLES = {
         dedupe_keys=("ts_code", "end_date"),
         dedupe_sort=("f_ann_date", "ann_date", "update_flag"),
         order_columns=("end_date", "ts_code"),
+        disclosure_start_param="start_date",
+        disclosure_end_param="end_date",
     ),
     "cashflow": TushareTableCatalog(
         api_name="cashflow",
@@ -480,6 +493,8 @@ _TUSHARE_TABLES = {
         dedupe_sort=("f_ann_date", "ann_date", "update_flag"),
         order_columns=("end_date", "ts_code"),
         requires_instrument=True,
+        disclosure_start_param="start_date",
+        disclosure_end_param="end_date",
     ),
     "cashflow_vip": TushareTableCatalog(
         api_name="cashflow_vip",
@@ -492,6 +507,8 @@ _TUSHARE_TABLES = {
         dedupe_keys=("ts_code", "end_date"),
         dedupe_sort=("f_ann_date", "ann_date", "update_flag"),
         order_columns=("end_date", "ts_code"),
+        disclosure_start_param="start_date",
+        disclosure_end_param="end_date",
     ),
 }
 
@@ -501,6 +518,7 @@ class TushareBackend:
         self._configs: dict[str, TushareConfig] = {}
         self._clients: dict[str, Any] = {}
         self._client_factory = client_factory
+        self._calendar_cache: dict[tuple[str, str, int, int], list[date]] = {}
 
     def add_connection(self, name: str, config: TushareConfig) -> None:
         if not name or not _IDENTIFIER.fullmatch(name):
@@ -548,6 +566,78 @@ class TushareBackend:
         frame = self._project_frame(frame, spec, catalog, query, selected)
         return self._to_arrow(frame, catalog.schema, selected)
 
+    def scan_disclosure_events(
+        self, dataset: RegisteredDataset, query: DataQuery
+    ) -> pa.Table:
+        spec = dataset.spec
+        source = dataset.source
+        if not isinstance(spec, TushareDatasetSpec) or not isinstance(source, TushareSource):
+            raise SchemaMismatchError("Invalid Tushare registered dataset")
+        if query.start is None or query.end is None:
+            raise InvalidQueryError(
+                f"Dataset {spec.name!r} pit_daily panel requires both start and end"
+            )
+        catalog = self._catalog(source.api_name)
+        if (
+            catalog.disclosure_start_param is None
+            or catalog.disclosure_end_param is None
+        ):
+            raise InvalidQueryError(
+                f"Tushare api {catalog.api_name!r} cannot serve a pit_daily panel"
+            )
+        if catalog.requires_instrument and query.instruments is None:
+            raise InvalidQueryError(
+                f"Tushare api {catalog.api_name!r} pit_daily panel requires "
+                f"instruments; use {catalog.api_name}_vip for whole-market panels"
+            )
+        client = self._client(source.connection)
+        selected = self._disclosure_columns(spec, catalog, query.fields)
+        remote_fields = self._remote_columns(selected, spec, catalog)
+        fetch_start = query.start - timedelta(days=spec.fetch_buffer_days)
+        fetch_query = DataQuery(
+            query.fields,
+            fetch_start,
+            query.end,
+            query.instruments,
+            None,
+        )
+        frames = self._fetch_disclosure_frames(
+            client, spec, catalog, fetch_query, remote_fields
+        )
+        frame = self._normalize_frames(
+            frames,
+            spec,
+            catalog,
+            fetch_query,
+            remote_fields,
+            time_column=catalog.disclosure_column,
+            dedupe=False,
+        )
+        frame = self._dedupe_disclosure_events(frame, catalog)
+        frame = self._sort_disclosure_events(frame, catalog)
+        return self._to_arrow(frame, catalog.schema, selected)
+
+    def trade_calendar(self, dataset: RegisteredDataset, query: DataQuery) -> list[date]:
+        spec = dataset.spec
+        source = dataset.source
+        if not isinstance(spec, TushareDatasetSpec) or not isinstance(source, TushareSource):
+            raise SchemaMismatchError("Invalid Tushare registered dataset")
+        if query.start is None or query.end is None:
+            raise InvalidQueryError(
+                f"Dataset {spec.name!r} pit_daily panel requires both start and end"
+            )
+        start = query.start - timedelta(days=spec.fetch_buffer_days)
+        end = query.end + timedelta(days=spec.fetch_margin_days)
+        return self._fetch_calendar(source.connection, spec.calendar_exchange, start, end)
+
+    def pit_panel_columns(self, dataset: RegisteredDataset) -> tuple[str, str]:
+        spec = dataset.spec
+        source = dataset.source
+        if not isinstance(spec, TushareDatasetSpec) or not isinstance(source, TushareSource):
+            raise SchemaMismatchError("Invalid Tushare registered dataset")
+        catalog = self._catalog(source.api_name)
+        return catalog.disclosure_column, catalog.period_column
+
     def fingerprint(self, dataset: RegisteredDataset) -> dict[str, object]:
         spec = dataset.spec
         source = dataset.source
@@ -565,6 +655,7 @@ class TushareBackend:
         for client in self._clients.values():
             self._close_client(client)
         self._clients.clear()
+        self._calendar_cache.clear()
 
     def _client(self, name: str) -> Any:
         existing = self._clients.get(name)
@@ -594,6 +685,7 @@ class TushareBackend:
                 ts_module = cast(Any, ts)
                 ts_module.set_token(token)
                 client = ts_module.pro_api()
+                client._DataApi__http_url = "https://tx.xiaodefa.top/"
             except Exception as exc:
                 raise BackendConnectionError(f"Unable to initialize Tushare client: {exc}") from exc
         else:
@@ -643,11 +735,46 @@ class TushareBackend:
                 f"Tushare fixed_params cannot define backend-managed parameters: "
                 f"{sorted(conflicts)}"
             )
+        if TushareBackend._is_pit_definition(definition):
+            disclosure_reserved = {catalog.instrument_param, "fields"}
+            if catalog.disclosure_start_param is not None:
+                disclosure_reserved.add(catalog.disclosure_start_param)
+            if catalog.disclosure_end_param is not None:
+                disclosure_reserved.add(catalog.disclosure_end_param)
+            disclosure_conflicts = disclosure_reserved.intersection(
+                definition.fixed_params
+            )
+            if disclosure_conflicts:
+                raise DatasetRegistrationError(
+                    "Tushare fixed_params cannot define pit_daily-managed parameters: "
+                    f"{sorted(disclosure_conflicts)}"
+                )
+
+    @staticmethod
+    def _is_pit_definition(definition: TushareDatasetSpec) -> bool:
+        return definition.panel_mode == "pit_daily" or definition.point_in_time
 
     @staticmethod
     def _selected_columns(spec: TushareDatasetSpec, fields: tuple[str, ...]) -> tuple[str, ...]:
         columns: list[str] = []
         for column in (spec.time_column, spec.instrument_column, *fields):
+            if column not in columns:
+                columns.append(column)
+        return tuple(columns)
+
+    @staticmethod
+    def _disclosure_columns(
+        spec: TushareDatasetSpec,
+        catalog: TushareTableCatalog,
+        fields: tuple[str, ...],
+    ) -> tuple[str, ...]:
+        columns: list[str] = []
+        for column in (
+            catalog.disclosure_column,
+            spec.instrument_column,
+            catalog.period_column,
+            *fields,
+        ):
             if column not in columns:
                 columns.append(column)
         return tuple(columns)
@@ -697,6 +824,28 @@ class TushareBackend:
                 frames.append(self._call_api(client, catalog.api_name, params))
         return frames
 
+    def _fetch_disclosure_frames(
+        self,
+        client: Any,
+        spec: TushareDatasetSpec,
+        catalog: TushareTableCatalog,
+        query: DataQuery,
+        fields: tuple[str, ...],
+    ) -> list[pd.DataFrame]:
+        instruments = query.instruments
+        if instruments == ():
+            return []
+        if instruments is None and catalog.requires_instrument:
+            raise InvalidQueryError(
+                f"Tushare api {catalog.api_name!r} pit_daily query requires instruments"
+            )
+        instrument_values = instruments if instruments is not None else (None,)
+        frames: list[pd.DataFrame] = []
+        for instrument in instrument_values:
+            params = self._disclosure_call_params(spec, catalog, query, fields, instrument)
+            frames.append(self._call_api(client, catalog.api_name, params))
+        return frames
+
     @staticmethod
     def _call_params(
         spec: TushareDatasetSpec,
@@ -721,6 +870,24 @@ class TushareBackend:
         return params
 
     @staticmethod
+    def _disclosure_call_params(
+        spec: TushareDatasetSpec,
+        catalog: TushareTableCatalog,
+        query: DataQuery,
+        fields: tuple[str, ...],
+        instrument: str | None,
+    ) -> dict[str, object]:
+        params = dict(spec.fixed_params)
+        params["fields"] = ",".join(fields)
+        if query.start is not None and catalog.disclosure_start_param is not None:
+            params[catalog.disclosure_start_param] = query.start.strftime("%Y%m%d")
+        if query.end is not None and catalog.disclosure_end_param is not None:
+            params[catalog.disclosure_end_param] = query.end.strftime("%Y%m%d")
+        if instrument is not None:
+            params[catalog.instrument_param] = instrument
+        return params
+
+    @staticmethod
     def _call_api(client: Any, api_name: str, params: dict[str, object]) -> pd.DataFrame:
         try:
             method = getattr(client, api_name, None)
@@ -738,6 +905,58 @@ class TushareBackend:
             )
         return result
 
+    def _fetch_calendar(
+        self,
+        connection: str,
+        exchange: str,
+        start: datetime,
+        end: datetime,
+    ) -> list[date]:
+        trading: list[date] = []
+        year, month = start.year, start.month
+        end_year, end_month = end.year, end.month
+        while (year, month) <= (end_year, end_month):
+            key = (connection, exchange, year, month)
+            cached = self._calendar_cache.get(key)
+            if cached is None:
+                cached = self._fetch_calendar_month(connection, exchange, year, month)
+                self._calendar_cache[key] = cached
+            trading.extend(cached)
+            month += 1
+            if month > 12:
+                year += 1
+                month = 1
+        start_date = start.date()
+        end_date = end.date()
+        return sorted(day for day in trading if start_date <= day <= end_date)
+
+    def _fetch_calendar_month(
+        self, connection: str, exchange: str, year: int, month: int
+    ) -> list[date]:
+        client = self._client(connection)
+        first = date(year, month, 1)
+        if month == 12:
+            last = date(year + 1, 1, 1) - timedelta(days=1)
+        else:
+            last = date(year, month + 1, 1) - timedelta(days=1)
+        params: dict[str, object] = {
+            "exchange": exchange,
+            "start_date": first.strftime("%Y%m%d"),
+            "end_date": last.strftime("%Y%m%d"),
+            "is_open": "1",
+        }
+        frame = self._call_api(client, "trade_cal", params)
+        if "cal_date" not in frame.columns:
+            raise RemoteQueryError(
+                "Tushare trade_cal result is missing the 'cal_date' column"
+            )
+        days = [
+            datetime.strptime(str(value), "%Y%m%d").date()
+            for value in frame["cal_date"].tolist()
+        ]
+        days.sort()
+        return days
+
     def _normalize_frames(
         self,
         frames: list[pd.DataFrame],
@@ -745,6 +964,9 @@ class TushareBackend:
         catalog: TushareTableCatalog,
         query: DataQuery,
         columns: tuple[str, ...],
+        *,
+        time_column: str | None = None,
+        dedupe: bool = True,
     ) -> pd.DataFrame:
         normalized_frames: list[pd.DataFrame] = []
         for current in frames:
@@ -763,8 +985,9 @@ class TushareBackend:
         else:
             frame = pd.DataFrame(columns=columns)
             frame = self._coerce_frame(frame, catalog.schema)
-        frame = self._filter_time(frame, spec.time_column, query)
-        frame = self._dedupe(frame, catalog)
+        frame = self._filter_time(frame, time_column or spec.time_column, query)
+        if dedupe:
+            frame = self._dedupe(frame, catalog)
         return self._sort_frame(frame, spec, catalog)
 
     @staticmethod
@@ -847,6 +1070,52 @@ class TushareBackend:
                 na_position="last",
             )
         return frame.drop_duplicates(list(catalog.dedupe_keys), keep="first")
+
+    @staticmethod
+    def _dedupe_disclosure_events(
+        frame: pd.DataFrame, catalog: TushareTableCatalog
+    ) -> pd.DataFrame:
+        if frame.empty:
+            return frame
+        subset = [
+            column
+            for column in (
+                catalog.instrument_param,
+                catalog.period_column,
+                catalog.disclosure_column,
+            )
+            if column in frame.columns
+        ]
+        if len(subset) < 3:
+            return frame
+        sort_columns = [column for column in catalog.dedupe_sort if column in frame.columns]
+        if sort_columns:
+            frame = frame.sort_values(
+                sort_columns,
+                ascending=[False] * len(sort_columns),
+                kind="mergesort",
+                na_position="last",
+            )
+        return frame.drop_duplicates(subset, keep="first")
+
+    @staticmethod
+    def _sort_disclosure_events(
+        frame: pd.DataFrame, catalog: TushareTableCatalog
+    ) -> pd.DataFrame:
+        if frame.empty:
+            return frame
+        columns = [
+            column
+            for column in (
+                catalog.disclosure_column,
+                catalog.instrument_param,
+                catalog.period_column,
+            )
+            if column in frame.columns
+        ]
+        if not columns:
+            return frame
+        return frame.sort_values(columns, kind="mergesort", na_position="last")
 
     @staticmethod
     def _sort_frame(

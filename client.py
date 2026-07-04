@@ -38,7 +38,7 @@ from .models import (
     TushareConfig,
     TushareDatasetSpec,
 )
-from .transforms.panel import build_panels
+from .transforms import build_daily_panels, build_panels
 
 QueryMode = Literal["panel", "table"]
 
@@ -165,43 +165,54 @@ class DataClient:
             record.adjusted = apply_adjustment
             record.parameters["adjusted"] = apply_adjustment
             scan_query = self._with_adjustment_factor(registered, query, apply_adjustment)
-            if scan_query.instruments == ():
-                table = self._empty_table(registered, scan_query.fields)
-            else:
-                table = backend.scan(registered, scan_query)
-            self._validate_table_keys(table, registered)
-            if apply_adjustment:
-                table = self._adjust_prices(table, registered)
-            table = table.select(
-                [spec.time_column, spec.instrument_column, *query.fields]
-            )
-
-            if mode == "table":
-                result = self._attach_table_metadata(table, query_id, dataset, record.parameters)
-                record.result_shapes = {"table": [result.num_rows, result.num_columns]}
-            else:
-                result = build_panels(
-                    table,
-                    dataset_name=dataset,
-                    time_column=spec.time_column,
-                    instrument_column=spec.instrument_column,
-                    fields=query.fields,
-                    instruments=query.instruments,
+            if mode == "panel" and self._uses_tushare_pit_panel(registered):
+                result = self._build_tushare_pit_panels(
+                    dataset,
+                    registered,
+                    scan_query,
+                    record,
+                    apply_adjustment,
                 )
-                attrs = {
-                    "query_id": query_id,
-                    "dataset": dataset,
-                    "frequency": spec.frequency,
-                    "version": spec.version,
-                    "parameters": record.parameters,
-                    "adjusted": apply_adjustment,
-                }
-                for panel in result.values():
-                    panel.attrs.update(attrs)
-                record.result_shapes = {
-                    field: [int(panel.shape[0]), int(panel.shape[1])]
-                    for field, panel in result.items()
-                }
+            else:
+                if scan_query.instruments == ():
+                    table = self._empty_table(registered, scan_query.fields)
+                else:
+                    table = backend.scan(registered, scan_query)
+                self._validate_table_keys(table, registered)
+                if apply_adjustment:
+                    table = self._adjust_prices(table, registered)
+                table = table.select(
+                    [spec.time_column, spec.instrument_column, *query.fields]
+                )
+
+                if mode == "table":
+                    result = self._attach_table_metadata(
+                        table, query_id, dataset, record.parameters
+                    )
+                    record.result_shapes = {"table": [result.num_rows, result.num_columns]}
+                else:
+                    result = build_panels(
+                        table,
+                        dataset_name=dataset,
+                        time_column=spec.time_column,
+                        instrument_column=spec.instrument_column,
+                        fields=query.fields,
+                        instruments=query.instruments,
+                    )
+                    attrs = {
+                        "query_id": query_id,
+                        "dataset": dataset,
+                        "frequency": spec.frequency,
+                        "version": spec.version,
+                        "parameters": record.parameters,
+                        "adjusted": apply_adjustment,
+                    }
+                    for panel in result.values():
+                        panel.attrs.update(attrs)
+                    record.result_shapes = {
+                        field: [int(panel.shape[0]), int(panel.shape[1])]
+                        for field, panel in result.items()
+                    }
             record.status = "success"
         except Exception as exc:
             record.status = "failed"
@@ -213,6 +224,69 @@ class DataClient:
         record.duration_ms = (time.perf_counter() - started_clock) * 1000
         self._audit.write(record)
         return result
+
+    @staticmethod
+    def _uses_tushare_pit_panel(dataset: RegisteredDataset) -> bool:
+        spec = dataset.spec
+        return isinstance(spec, TushareDatasetSpec) and (
+            spec.panel_mode == "pit_daily" or spec.point_in_time
+        )
+
+    def _build_tushare_pit_panels(
+        self,
+        dataset_name: str,
+        dataset: RegisteredDataset,
+        query: DataQuery,
+        record: QueryAudit,
+        apply_adjustment: bool,
+    ) -> dict[str, pd.DataFrame]:
+        spec = dataset.spec
+        if not isinstance(spec, TushareDatasetSpec):
+            raise SchemaMismatchError("PIT panels require a Tushare dataset")
+        if query.start is None or query.end is None:
+            raise InvalidQueryError(
+                f"Dataset {dataset_name!r} pit_daily panel requires both start and end"
+            )
+        if apply_adjustment:
+            raise InvalidQueryError("pit_daily panels do not support price adjustment")
+
+        table = self._tushare.scan_disclosure_events(dataset, query)
+        self._validate_table_keys(table, dataset)
+        disclosure_column, period_column = self._tushare.pit_panel_columns(dataset)
+        calendar = self._tushare.trade_calendar(dataset, query)
+        panels = build_daily_panels(
+            table,
+            dataset_name=dataset_name,
+            disclosure_column=disclosure_column,
+            instrument_column=spec.instrument_column,
+            period_column=period_column,
+            fields=query.fields,
+            instruments=query.instruments,
+            calendar=calendar,
+            panel_start=pd.Timestamp(query.start.date()),
+            panel_end=pd.Timestamp(query.end.date()),
+            disclosure_lag=spec.disclosure_lag,
+        )
+        record.calendar_aligned = True
+        record.parameters["panel_mode"] = "pit_daily"
+        record.parameters["disclosure_lag"] = spec.disclosure_lag
+        attrs = {
+            "query_id": record.query_id,
+            "dataset": dataset_name,
+            "frequency": spec.frequency,
+            "version": spec.version,
+            "parameters": record.parameters,
+            "adjusted": False,
+            "panel_mode": "pit_daily",
+            "disclosure_lag": spec.disclosure_lag,
+        }
+        for panel in panels.values():
+            panel.attrs.update(attrs)
+        record.result_shapes = {
+            field: [int(panel.shape[0]), int(panel.shape[1])]
+            for field, panel in panels.items()
+        }
+        return panels
 
     @staticmethod
     def _resolve_adjustment(dataset: RegisteredDataset, adjusted: bool | None) -> bool:
@@ -265,6 +339,17 @@ class DataClient:
             raise DatasetRegistrationError("Time and instrument columns must be different")
         if isinstance(spec, DatasetSpec) and not spec.paths:
             raise DatasetRegistrationError("Dataset paths cannot be empty")
+        if isinstance(spec, TushareDatasetSpec):
+            if spec.panel_mode not in {"period", "pit_daily"}:
+                raise DatasetRegistrationError(
+                    f"Unsupported Tushare panel_mode: {spec.panel_mode!r}"
+                )
+            if spec.disclosure_lag < 0:
+                raise DatasetRegistrationError("disclosure_lag must be non-negative")
+            if spec.fetch_buffer_days < 0:
+                raise DatasetRegistrationError("fetch_buffer_days must be non-negative")
+            if spec.fetch_margin_days < 0:
+                raise DatasetRegistrationError("fetch_margin_days must be non-negative")
         if spec.timezone:
             try:
                 ZoneInfo(spec.timezone)
