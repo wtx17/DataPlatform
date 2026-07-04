@@ -255,7 +255,8 @@ Tushare 后端用于直接访问 Tushare Pro API。当前内置 `income` /
 `income_vip`、`balancesheet` / `balancesheet_vip`、`cashflow` /
 `cashflow_vip` 财务报表字段，以及 `fina_indicator` /
 `fina_indicator_vip` 财务指标字段、`express` / `express_vip` 业绩快报字段、
-`forecast` / `forecast_vip` 业绩预告字段，不要求研究代码手动声明输出 schema。
+`forecast` / `forecast_vip` 业绩预告字段，还内置 `stk_holdernumber` 股东人数和
+`stk_holdertrade` 股东增减持字段，不要求研究代码手动声明输出 schema。
 
 使用前先设置 Tushare token：
 
@@ -365,7 +366,9 @@ VIP 接口也可以传入股票池，此时仍会逐只调用。
 财务数据同一只股票同一报告期可能存在多条记录。财务报表后端会按
 `f_ann_date`、`ann_date`、`update_flag` 降序保留最新记录；财务指标会按
 `ann_date`、`update_flag` 降序保留最新记录；业绩快报和业绩预告会按公告日
-保留最新记录，使结果可以直接构建 `end_date × ts_code` 宽表。审计记录只保存
+保留最新记录，使结果可以直接构建 `end_date × ts_code` 宽表。股东人数会按
+`ann_date` 降序保留同一 `ts_code × end_date` 的最新记录；股东增减持保留
+Tushare 返回的多条事件记录。审计记录只保存
 后端名称、连接名、API 名称、schema 哈希和固定参数，不记录 token。
 
 如果要把财务数据用作实盘可得的因子输入，启用
@@ -394,9 +397,11 @@ factor_panels = data.get_panel(
 )
 ```
 
-`pit_daily` 需要传入 `instruments`，并且应使用 `income`、`balancesheet`、
-`cashflow`、`fina_indicator`、`express` 或 `forecast` 普通接口；如果要在
-`instruments=None` 时生成全市场日频面板，应注册对应的 `_vip` 接口。
+`pit_daily` 应使用 `income`、`balancesheet`、`cashflow`、`fina_indicator`、
+`express`、`forecast` 或 `stk_holdernumber` 普通接口。财报、财务指标、业绩快报和
+业绩预告的普通接口需要传入 `instruments`；如果要在 `instruments=None` 时生成全市场
+日频面板，应注册对应的 `_vip` 接口。`stk_holdernumber` 可以直接在
+`instruments=None` 时读取全市场数据。
 
 ```python
 data.register(
@@ -415,6 +420,53 @@ all_factor_panels = data.get_panel(
     start="2018-01-01",
     end="2018-12-31",
     instruments=None,
+)
+```
+
+股东人数接口 `stk_holdernumber` 默认以截止日期 `end_date` 作为时间列。传入
+`instruments` 时后端会逐只股票拉取；`instruments=None` 时不会传 `ts_code`，直接读取
+全市场数据。普通查询会在本地按 `end_date` 过滤；PIT 日频面板使用公告日
+`ann_date` 作为 disclosure date。
+
+```python
+data.register(
+    TushareDatasetSpec(
+        name="holdernumber",
+        connection="tushare",
+        api_name="stk_holdernumber",
+        frequency="d",
+    )
+)
+
+holder_panels = data.get_panel(
+    "holdernumber",
+    fields=["holder_num"],
+    start="2018-01-01",
+    end="2018-12-31",
+    instruments=["600000.SH", "000001.SZ"],
+)
+```
+
+股东增减持接口 `stk_holdertrade` 是一对多事件表，默认时间列会切换为公告日
+`ann_date`，并要求查询时提供 `start` 和 `end`。同一天同一股票可能有多条股东交易，
+因此该接口默认只能用 `get_table`，不会生成普通宽表；可通过 `fixed_params` 固定
+`trade_type` 或 `holder_type`。
+
+```python
+data.register(
+    TushareDatasetSpec(
+        name="holdertrade",
+        connection="tushare",
+        api_name="stk_holdertrade",
+        fixed_params={"trade_type": "IN"},
+    )
+)
+
+holder_trade_table = data.get_table(
+    "holdertrade",
+    fields=["holder_name", "holder_type", "in_de", "change_vol", "begin_date"],
+    start="2019-04-01",
+    end="2019-04-30",
 )
 ```
 
