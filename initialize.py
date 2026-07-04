@@ -172,7 +172,7 @@ def tushare_dataset_specs(
                     api_name=api_name,
                     panel_mode="pit_daily",
                     frequency="d",
-                    disclosure_lag=1,
+                    disclosure_lag=0,
                 )
             )
     return tuple(specs)
