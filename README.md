@@ -253,7 +253,9 @@ time
 
 Tushare 后端用于直接访问 Tushare Pro API。当前内置 `income` /
 `income_vip`、`balancesheet` / `balancesheet_vip`、`cashflow` /
-`cashflow_vip` 财务报表字段，不要求研究代码手动声明输出 schema。
+`cashflow_vip` 财务报表字段，以及 `fina_indicator` /
+`fina_indicator_vip` 财务指标字段、`express` / `express_vip` 业绩快报字段、
+`forecast` / `forecast_vip` 业绩预告字段，不要求研究代码手动声明输出 schema。
 
 使用前先设置 Tushare token：
 
@@ -261,7 +263,7 @@ Tushare 后端用于直接访问 Tushare Pro API。当前内置 `income` /
 conda env config vars set TUSHARE_TOKEN='<token>'
 ```
 
-连接并注册三张财务报表：
+连接并注册财务数据：
 
 ```python
 from quant_data import DataClient, TushareConfig, TushareDatasetSpec
@@ -276,6 +278,9 @@ for name, api_name in {
     "income": "income_vip",
     "balancesheet": "balancesheet_vip",
     "cashflow": "cashflow_vip",
+    "fina_indicator": "fina_indicator_vip",
+    "express": "express_vip",
+    "forecast": "forecast_vip",
 }.items():
     data.register(
         TushareDatasetSpec(
@@ -287,7 +292,7 @@ for name, api_name in {
     )
 ```
 
-这些财务报表默认以报告期 `end_date` 作为时间索引，以 `ts_code` 作为证券列。
+这些财务数据默认以报告期 `end_date` 作为时间索引，以 `ts_code` 作为证券列。
 `start` 和 `end` 会被转换为闭区间内的季度末 `period`，逐期调用 Tushare。
 VIP 接口在 `instruments=None` 时不传 `ts_code`，获取全市场数据。
 
@@ -301,7 +306,7 @@ panels = data.get_panel(
 basic_eps = panels["basic_eps"]
 ```
 
-资产负债表和现金流量表同样可以直接生成宽表：
+资产负债表、现金流量表、财务指标、业绩快报和业绩预告同样可以直接生成宽表：
 
 ```python
 balance_panels = data.get_panel(
@@ -314,6 +319,27 @@ balance_panels = data.get_panel(
 cashflow_panels = data.get_panel(
     "cashflow",
     fields=["n_cashflow_act", "free_cashflow", "n_incr_cash_cash_equ"],
+    start="2018-01-01",
+    end="2018-12-31",
+)
+
+indicator_panels = data.get_panel(
+    "fina_indicator",
+    fields=["eps", "roe", "debt_to_assets"],
+    start="2018-01-01",
+    end="2018-12-31",
+)
+
+express_panels = data.get_panel(
+    "express",
+    fields=["revenue", "n_income", "diluted_eps"],
+    start="2018-01-01",
+    end="2018-12-31",
+)
+
+forecast_panels = data.get_panel(
+    "forecast",
+    fields=["type", "p_change_min", "p_change_max"],
     start="2018-01-01",
     end="2018-12-31",
 )
@@ -331,18 +357,21 @@ table = data.get_table(
 )
 ```
 
-普通 `income` / `balancesheet` / `cashflow` 接口按 Tushare 文档要求必须传入
-`instruments`，后端会按 `period × ts_code` 调用；需要按季度全市场获取时，
-应注册对应的 `_vip` 接口。VIP 接口也可以传入股票池，此时仍会逐只调用。
+普通 `income` / `balancesheet` / `cashflow` / `fina_indicator` / `express` /
+`forecast` 接口按 Tushare 文档要求必须传入 `instruments`，后端会按
+`period × ts_code` 调用；需要按季度全市场获取时，应注册对应的 `_vip` 接口。
+VIP 接口也可以传入股票池，此时仍会逐只调用。
 
-财务报表同一只股票同一报告期可能存在多条记录。后端会按
-`f_ann_date`、`ann_date`、`update_flag` 降序保留最新记录，使结果可以直接构建
-`end_date × ts_code` 宽表。审计记录只保存后端名称、连接名、API 名称、schema
-哈希和固定参数，不记录 token。
+财务数据同一只股票同一报告期可能存在多条记录。财务报表后端会按
+`f_ann_date`、`ann_date`、`update_flag` 降序保留最新记录；财务指标会按
+`ann_date`、`update_flag` 降序保留最新记录；业绩快报和业绩预告会按公告日
+保留最新记录，使结果可以直接构建 `end_date × ts_code` 宽表。审计记录只保存
+后端名称、连接名、API 名称、schema 哈希和固定参数，不记录 token。
 
 如果要把财务数据用作实盘可得的因子输入，启用
 `panel_mode="pit_daily"`。此模式只影响 `get_panel`：后端按公告日期拉取
-disclosure events，内部使用 `f_ann_date`、交易日历和默认 T+1 延迟构造日频宽表；
+disclosure events，财务报表内部使用 `f_ann_date`，财务指标、业绩快报和
+业绩预告使用 `ann_date`，再结合交易日历和默认 T+1 延迟构造日频宽表；
 `get_table` 仍返回普通查询结果。
 
 ```python
@@ -365,9 +394,9 @@ factor_panels = data.get_panel(
 )
 ```
 
-`pit_daily` 需要传入 `instruments`，并且应使用 `income`、`balancesheet` 或
-`cashflow` 普通接口；如果要在 `instruments=None` 时生成全市场日频面板，应注册
-对应的 `_vip` 接口。
+`pit_daily` 需要传入 `instruments`，并且应使用 `income`、`balancesheet`、
+`cashflow`、`fina_indicator`、`express` 或 `forecast` 普通接口；如果要在
+`instruments=None` 时生成全市场日频面板，应注册对应的 `_vip` 接口。
 
 ```python
 data.register(
