@@ -118,7 +118,9 @@ _INCOME_DEFAULT_FIELDS = (
     "continued_net_profit",
     "update_flag",
 )
-_FINANCE_DATE_FIELDS = frozenset({"ann_date", "f_ann_date", "end_date", "first_ann_date"})
+_FINANCE_DATE_FIELDS = frozenset(
+    {"ann_date", "f_ann_date", "end_date", "first_ann_date", "begin_date", "close_date"}
+)
 _FINANCE_STRING_FIELDS = frozenset(
     {
         "ts_code",
@@ -131,9 +133,12 @@ _FINANCE_STRING_FIELDS = frozenset(
         "change_reason",
         "perf_summary",
         "remark",
+        "holder_name",
+        "holder_type",
+        "in_de",
     }
 )
-_FINANCE_INTEGER_FIELDS = frozenset({"is_audit"})
+_FINANCE_INTEGER_FIELDS = frozenset({"is_audit", "holder_num"})
 
 _BALANCESHEET_DEFAULT_FIELDS = (
     "ts_code",
@@ -610,6 +615,29 @@ _FORECAST_DEFAULT_FIELDS = (
     "change_reason",
 )
 
+_STK_HOLDERNUMBER_DEFAULT_FIELDS = (
+    "ts_code",
+    "ann_date",
+    "end_date",
+    "holder_num",
+)
+
+_STK_HOLDERTRADE_DEFAULT_FIELDS = (
+    "ts_code",
+    "ann_date",
+    "holder_name",
+    "holder_type",
+    "in_de",
+    "change_vol",
+    "change_ratio",
+    "after_share",
+    "after_ratio",
+    "avg_price",
+    "total_share",
+    "begin_date",
+    "close_date",
+)
+
 _INDUSTRY_MEMBER_FIELDS = (
     "date",
     "l1_code",
@@ -636,13 +664,14 @@ class TushareTableCatalog:
     start_param: str | None
     end_param: str | None
     instrument_param: str
-    dedupe_keys: tuple[str, str]
+    dedupe_keys: tuple[str, ...]
     dedupe_sort: tuple[str, ...]
     order_columns: tuple[str, ...]
     requires_instrument: bool = False
     default_time_column: str | None = None
     default_frequency: str | None = None
     requires_time_range: bool = False
+    panel_compatible: bool | None = None
     disclosure_column: str = "f_ann_date"
     period_column: str = "end_date"
     disclosure_start_param: str | None = None
@@ -688,6 +717,8 @@ _CASHFLOW_SCHEMA = _financial_statement_schema(_CASHFLOW_DEFAULT_FIELDS)
 _FINA_INDICATOR_SCHEMA = _financial_statement_schema(_FINA_INDICATOR_DEFAULT_FIELDS)
 _EXPRESS_SCHEMA = _financial_statement_schema(_EXPRESS_DEFAULT_FIELDS)
 _FORECAST_SCHEMA = _financial_statement_schema(_FORECAST_DEFAULT_FIELDS)
+_STK_HOLDERNUMBER_SCHEMA = _financial_statement_schema(_STK_HOLDERNUMBER_DEFAULT_FIELDS)
+_STK_HOLDERTRADE_SCHEMA = _financial_statement_schema(_STK_HOLDERTRADE_DEFAULT_FIELDS)
 _INDUSTRY_MEMBER_SCHEMA = _industry_member_schema(_INDUSTRY_MEMBER_FIELDS)
 _TUSHARE_TABLES = {
     "income": TushareTableCatalog(
@@ -869,6 +900,37 @@ _TUSHARE_TABLES = {
         disclosure_column="ann_date",
         disclosure_start_param="start_date",
         disclosure_end_param="end_date",
+    ),
+    "stk_holdernumber": TushareTableCatalog(
+        api_name="stk_holdernumber",
+        schema=_STK_HOLDERNUMBER_SCHEMA,
+        query_style="date_range",
+        period_param=None,
+        start_param=None,
+        end_param=None,
+        instrument_param="ts_code",
+        dedupe_keys=("ts_code", "end_date"),
+        dedupe_sort=("ann_date",),
+        order_columns=("end_date", "ts_code"),
+        disclosure_column="ann_date",
+        disclosure_start_param="start_date",
+        disclosure_end_param="end_date",
+    ),
+    "stk_holdertrade": TushareTableCatalog(
+        api_name="stk_holdertrade",
+        schema=_STK_HOLDERTRADE_SCHEMA,
+        query_style="date_range",
+        period_param=None,
+        start_param="start_date",
+        end_param="end_date",
+        instrument_param="ts_code",
+        dedupe_keys=(),
+        dedupe_sort=(),
+        order_columns=("ann_date", "ts_code", "holder_name"),
+        default_time_column="ann_date",
+        default_frequency="d",
+        requires_time_range=True,
+        panel_compatible=False,
     ),
     "ci_index_member": TushareTableCatalog(
         api_name="ci_index_member",
@@ -1125,6 +1187,8 @@ class TushareBackend:
             normalized = replace(normalized, frequency=catalog.default_frequency)
         if catalog.requires_time_range and normalized.require_time_range is not True:
             normalized = replace(normalized, require_time_range=True)
+        if catalog.panel_compatible is not None:
+            normalized = replace(normalized, panel_compatible=catalog.panel_compatible)
         return normalized
 
     @staticmethod
@@ -1224,7 +1288,7 @@ class TushareBackend:
                     columns.append(column)
             return tuple(columns)
         columns = list(selected)
-        for column in (*catalog.dedupe_sort, *spec.order_columns):
+        for column in (*catalog.dedupe_keys, *catalog.dedupe_sort, *spec.order_columns):
             if column not in columns:
                 columns.append(column)
         return tuple(columns)
@@ -1661,7 +1725,7 @@ class TushareBackend:
 
     @staticmethod
     def _dedupe(frame: pd.DataFrame, catalog: TushareTableCatalog) -> pd.DataFrame:
-        if frame.empty:
+        if frame.empty or not catalog.dedupe_keys:
             return frame
         sort_columns = [column for column in catalog.dedupe_sort if column in frame.columns]
         if sort_columns:
