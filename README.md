@@ -389,6 +389,88 @@ all_factor_panels = data.get_panel(
 )
 ```
 
+中信行业成分接口 `ci_index_member` 和申万行业成分接口 `index_member_all`
+也可以注册成日频面板。后端会拉取 `in_date` / `out_date` 成分区间，
+按交易日历展开为内部 `date × ts_code` 长表，再由 `get_panel` 返回宽表；
+注册时不需要手动声明 schema 或时间列。
+
+```python
+data.register(
+    TushareDatasetSpec(
+        name="citic_industry",
+        connection="tushare",
+        api_name="ci_index_member",
+    )
+)
+
+industry_panels = data.get_panel(
+    "citic_industry",
+    fields=["l1_name", "l2_name", "l3_name"],
+    start="2024-01-01",
+    end="2024-12-31",
+    instruments=["600000.SH", "000004.SZ"],
+)
+```
+
+也可以通过 `fixed_params` 固定行业代码，获取某个中信行业的成分宽表；
+`instruments=None` 时不会传 `ts_code`。
+
+```python
+data.register(
+    TushareDatasetSpec(
+        name="citic_electronics",
+        connection="tushare",
+        api_name="ci_index_member",
+        fixed_params={"l2_code": "CI005835.CI"},
+    )
+)
+
+member_panels = data.get_panel(
+    "citic_electronics",
+    fields=["l3_name"],
+    start="2024-01-01",
+    end="2024-12-31",
+    instruments=None,
+)
+```
+
+申万行业成分用法相同，只需把 `api_name` 换成 `index_member_all`。
+
+```python
+data.register(
+    TushareDatasetSpec(
+        name="sw_industry",
+        connection="tushare",
+        api_name="index_member_all",
+    )
+)
+
+sw_panels = data.get_panel(
+    "sw_industry",
+    fields=["l1_name", "l2_name", "l3_name"],
+    start="2024-01-01",
+    end="2024-12-31",
+    instruments=["600000.SH", "000004.SZ"],
+)
+
+data.register(
+    TushareDatasetSpec(
+        name="sw_gold_members",
+        connection="tushare",
+        api_name="index_member_all",
+        fixed_params={"l3_code": "850531.SI"},
+    )
+)
+
+sw_member_panels = data.get_panel(
+    "sw_gold_members",
+    fields=["l3_name"],
+    start="2024-01-01",
+    end="2024-12-31",
+    instruments=None,
+)
+```
+
 
 ## 查询规则
 

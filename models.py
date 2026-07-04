@@ -73,7 +73,7 @@ class TushareDatasetSpec:
     require_time_range: bool | None = False
     panel_mode: Literal["period", "pit_daily"] = "period"
     point_in_time: bool = False
-    disclosure_lag: int = 1
+    disclosure_lag: int = 0
     calendar_exchange: str = "SSE"
     fetch_buffer_days: int = 365
     fetch_margin_days: int = 31

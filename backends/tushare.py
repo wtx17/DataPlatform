@@ -6,7 +6,7 @@ import hashlib
 import json
 import os
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date, datetime, timedelta
 from typing import Any, Callable, Mapping, cast
 
@@ -378,6 +378,22 @@ _CASHFLOW_DEFAULT_FIELDS = (
     "update_flag",
 )
 
+_INDUSTRY_MEMBER_FIELDS = (
+    "date",
+    "l1_code",
+    "l1_name",
+    "l2_code",
+    "l2_name",
+    "l3_code",
+    "l3_name",
+    "ts_code",
+    "name",
+    "in_date",
+    "out_date",
+    "is_new",
+)
+_INDUSTRY_MEMBER_DATE_FIELDS = frozenset({"date", "in_date", "out_date"})
+
 
 @dataclass(frozen=True, slots=True)
 class TushareTableCatalog:
@@ -392,10 +408,15 @@ class TushareTableCatalog:
     dedupe_sort: tuple[str, ...]
     order_columns: tuple[str, ...]
     requires_instrument: bool = False
+    default_time_column: str | None = None
+    default_frequency: str | None = None
+    requires_time_range: bool = False
     disclosure_column: str = "f_ann_date"
     period_column: str = "end_date"
     disclosure_start_param: str | None = None
     disclosure_end_param: str | None = None
+    interval_start_column: str | None = None
+    interval_end_column: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -419,9 +440,18 @@ def _financial_statement_schema(field_names: tuple[str, ...]) -> pa.Schema:
     return pa.schema(fields)
 
 
+def _industry_member_schema(field_names: tuple[str, ...]) -> pa.Schema:
+    fields: list[pa.Field] = []
+    for name in field_names:
+        data_type = pa.date32() if name in _INDUSTRY_MEMBER_DATE_FIELDS else pa.string()
+        fields.append(pa.field(name, data_type))
+    return pa.schema(fields)
+
+
 _INCOME_SCHEMA = _financial_statement_schema(_INCOME_DEFAULT_FIELDS)
 _BALANCESHEET_SCHEMA = _financial_statement_schema(_BALANCESHEET_DEFAULT_FIELDS)
 _CASHFLOW_SCHEMA = _financial_statement_schema(_CASHFLOW_DEFAULT_FIELDS)
+_INDUSTRY_MEMBER_SCHEMA = _industry_member_schema(_INDUSTRY_MEMBER_FIELDS)
 _TUSHARE_TABLES = {
     "income": TushareTableCatalog(
         api_name="income",
@@ -510,6 +540,40 @@ _TUSHARE_TABLES = {
         disclosure_start_param="start_date",
         disclosure_end_param="end_date",
     ),
+    "ci_index_member": TushareTableCatalog(
+        api_name="ci_index_member",
+        schema=_INDUSTRY_MEMBER_SCHEMA,
+        query_style="membership_interval",
+        period_param=None,
+        start_param=None,
+        end_param=None,
+        instrument_param="ts_code",
+        dedupe_keys=("date", "ts_code"),
+        dedupe_sort=("in_date", "is_new"),
+        order_columns=("date", "ts_code"),
+        default_time_column="date",
+        default_frequency="d",
+        requires_time_range=True,
+        interval_start_column="in_date",
+        interval_end_column="out_date",
+    ),
+    "index_member_all": TushareTableCatalog(
+        api_name="index_member_all",
+        schema=_INDUSTRY_MEMBER_SCHEMA,
+        query_style="membership_interval",
+        period_param=None,
+        start_param=None,
+        end_param=None,
+        instrument_param="ts_code",
+        dedupe_keys=("date", "ts_code"),
+        dedupe_sort=("in_date", "is_new"),
+        order_columns=("date", "ts_code"),
+        default_time_column="date",
+        default_frequency="d",
+        requires_time_range=True,
+        interval_start_column="in_date",
+        interval_end_column="out_date",
+    ),
 }
 
 
@@ -538,6 +602,7 @@ class TushareBackend:
         if not isinstance(definition, TushareDatasetSpec):
             raise DatasetRegistrationError("Tushare backend requires TushareDatasetSpec")
         catalog = self._catalog(definition.api_name)
+        definition = self._normalize_definition(definition, catalog)
         self._validate_definition(definition, catalog)
         self._client(definition.connection)
         normalized = json.dumps(
@@ -560,6 +625,16 @@ class TushareBackend:
         catalog = self._catalog(source.api_name)
         client = self._client(source.connection)
         selected = self._selected_columns(spec, query.fields)
+        if catalog.query_style == "membership_interval":
+            remote_fields = self._remote_columns(selected, spec, catalog)
+            frames = self._fetch_membership_frames(
+                client, spec, catalog, query, remote_fields
+            )
+            frame = self._normalize_membership_frames(
+                frames, spec, catalog, query, remote_fields, source.connection
+            )
+            frame = self._project_frame(frame, spec, catalog, query, selected)
+            return self._to_arrow(frame, catalog.schema, selected)
         remote_fields = self._remote_columns(selected, spec, catalog)
         frames = self._fetch_frames(client, spec, catalog, query, remote_fields)
         frame = self._normalize_frames(frames, spec, catalog, query, remote_fields)
@@ -707,6 +782,22 @@ class TushareBackend:
         return catalog
 
     @staticmethod
+    def _normalize_definition(
+        definition: TushareDatasetSpec, catalog: TushareTableCatalog
+    ) -> TushareDatasetSpec:
+        normalized = definition
+        if (
+            catalog.default_time_column is not None
+            and normalized.time_column == "end_date"
+        ):
+            normalized = replace(normalized, time_column=catalog.default_time_column)
+        if catalog.default_frequency is not None and normalized.frequency is None:
+            normalized = replace(normalized, frequency=catalog.default_frequency)
+        if catalog.requires_time_range and normalized.require_time_range is not True:
+            normalized = replace(normalized, require_time_range=True)
+        return normalized
+
+    @staticmethod
     def _validate_definition(
         definition: TushareDatasetSpec, catalog: TushareTableCatalog
     ) -> None:
@@ -785,6 +876,23 @@ class TushareBackend:
         spec: TushareDatasetSpec,
         catalog: TushareTableCatalog,
     ) -> tuple[str, ...]:
+        if catalog.query_style == "membership_interval":
+            columns = [
+                column for column in selected if column != spec.time_column
+            ]
+            for column in (
+                catalog.interval_start_column,
+                catalog.interval_end_column,
+                *catalog.dedupe_sort,
+                *spec.order_columns,
+            ):
+                if (
+                    column is not None
+                    and column != spec.time_column
+                    and column not in columns
+                ):
+                    columns.append(column)
+            return tuple(columns)
         columns = list(selected)
         for column in (*catalog.dedupe_sort, *spec.order_columns):
             if column not in columns:
@@ -846,6 +954,29 @@ class TushareBackend:
             frames.append(self._call_api(client, catalog.api_name, params))
         return frames
 
+    def _fetch_membership_frames(
+        self,
+        client: Any,
+        spec: TushareDatasetSpec,
+        catalog: TushareTableCatalog,
+        query: DataQuery,
+        fields: tuple[str, ...],
+    ) -> list[pd.DataFrame]:
+        instruments = query.instruments
+        if instruments == ():
+            return []
+        instrument_values = instruments if instruments is not None else (None,)
+        is_new_values: tuple[str | None, ...]
+        is_new_values = (None,) if "is_new" in spec.fixed_params else ("Y", "N")
+        frames: list[pd.DataFrame] = []
+        for instrument in instrument_values:
+            for is_new in is_new_values:
+                params = self._membership_call_params(
+                    spec, catalog, fields, instrument, is_new
+                )
+                frames.append(self._call_api(client, catalog.api_name, params))
+        return frames
+
     @staticmethod
     def _call_params(
         spec: TushareDatasetSpec,
@@ -867,6 +998,22 @@ class TushareBackend:
                 params[catalog.end_param] = query.end.strftime("%Y%m%d")
         if instrument is not None:
             params[catalog.instrument_param] = instrument
+        return params
+
+    @staticmethod
+    def _membership_call_params(
+        spec: TushareDatasetSpec,
+        catalog: TushareTableCatalog,
+        fields: tuple[str, ...],
+        instrument: str | None,
+        is_new: str | None,
+    ) -> dict[str, object]:
+        params = dict(spec.fixed_params)
+        params["fields"] = ",".join(fields)
+        if instrument is not None:
+            params[catalog.instrument_param] = instrument
+        if is_new is not None:
+            params["is_new"] = is_new
         return params
 
     @staticmethod
@@ -956,6 +1103,127 @@ class TushareBackend:
         ]
         days.sort()
         return days
+
+    def _normalize_membership_frames(
+        self,
+        frames: list[pd.DataFrame],
+        spec: TushareDatasetSpec,
+        catalog: TushareTableCatalog,
+        query: DataQuery,
+        columns: tuple[str, ...],
+        connection: str,
+    ) -> pd.DataFrame:
+        if query.start is None or query.end is None:
+            raise InvalidQueryError(
+                f"Dataset {spec.name!r} requires both start and end for membership panels"
+            )
+        normalized_frames: list[pd.DataFrame] = []
+        for current in frames:
+            if current.empty:
+                continue
+            missing = set(columns).difference(current.columns)
+            if missing:
+                raise SchemaMismatchError(
+                    f"Tushare api {catalog.api_name!r} result is missing columns: "
+                    f"{sorted(missing)}"
+                )
+            current = current.loc[:, list(columns)].copy()
+            normalized_frames.append(self._coerce_frame(current, catalog.schema))
+        base_columns = self._membership_columns(spec, columns)
+        if normalized_frames:
+            frame = pd.concat(normalized_frames, ignore_index=True)
+        else:
+            frame = pd.DataFrame(columns=columns)
+            frame = self._coerce_frame(frame, catalog.schema)
+        calendar = self._fetch_calendar(
+            connection,
+            spec.calendar_exchange,
+            query.start,
+            query.end,
+        )
+        expanded = self._expand_membership_intervals(
+            frame, spec, catalog, query, calendar, base_columns
+        )
+        return self._sort_frame(expanded, spec, catalog)
+
+    @staticmethod
+    def _membership_columns(
+        spec: TushareDatasetSpec, columns: tuple[str, ...]
+    ) -> tuple[str, ...]:
+        result = [spec.time_column]
+        for column in columns:
+            if column not in result:
+                result.append(column)
+        return tuple(result)
+
+    @staticmethod
+    def _expand_membership_intervals(
+        frame: pd.DataFrame,
+        spec: TushareDatasetSpec,
+        catalog: TushareTableCatalog,
+        query: DataQuery,
+        calendar: list[date],
+        columns: tuple[str, ...],
+    ) -> pd.DataFrame:
+        start_column = catalog.interval_start_column
+        end_column = catalog.interval_end_column
+        if start_column is None or end_column is None:
+            raise SchemaMismatchError(
+                f"Tushare api {catalog.api_name!r} is missing interval columns"
+            )
+        if query.start is None or query.end is None:
+            raise InvalidQueryError(
+                f"Dataset {spec.name!r} requires both start and end for membership panels"
+            )
+        if frame.empty:
+            return pd.DataFrame(columns=columns)
+        query_start = query.start.date()
+        query_end = query.end.date()
+        calendar_days = [day for day in calendar if query_start <= day <= query_end]
+        if not calendar_days:
+            return pd.DataFrame(columns=columns)
+
+        blocks: list[pd.DataFrame] = []
+        for _, row in frame.iterrows():
+            in_date = row[start_column]
+            if pd.isna(in_date):
+                continue
+            out_date = row[end_column]
+            interval_start = max(cast(date, in_date), query_start)
+            interval_end = query_end if pd.isna(out_date) else min(cast(date, out_date), query_end)
+            if interval_start > interval_end:
+                continue
+            active_days = [
+                current for current in calendar_days if interval_start <= current <= interval_end
+            ]
+            if not active_days:
+                continue
+            block = pd.DataFrame({spec.time_column: active_days})
+            for column in frame.columns:
+                if column != spec.time_column:
+                    block[column] = row[column]
+            blocks.append(block)
+        if not blocks:
+            return pd.DataFrame(columns=columns)
+        expanded = pd.concat(blocks, ignore_index=True)
+        sort_columns = [
+            column
+            for column in (
+                spec.time_column,
+                spec.instrument_column,
+                start_column,
+                "is_new",
+            )
+            if column in expanded.columns
+        ]
+        if sort_columns:
+            expanded = expanded.sort_values(
+                sort_columns, kind="mergesort", na_position="last"
+            )
+        expanded = expanded.drop_duplicates(
+            [spec.time_column, spec.instrument_column], keep="last"
+        )
+        return expanded.loc[:, list(columns)]
 
     def _normalize_frames(
         self,
