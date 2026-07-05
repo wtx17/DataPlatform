@@ -192,16 +192,13 @@ class DataClient:
                     )
                     record.result_shapes = {"table": [result.num_rows, result.num_columns]}
                 else:
-                    panel_instruments = self._panel_instruments(
-                        table, registered, query.instruments
-                    )
                     result = build_panels(
                         table,
                         dataset_name=dataset,
                         time_column=spec.time_column,
                         instrument_column=spec.instrument_column,
                         fields=query.fields,
-                        instruments=panel_instruments,
+                        instruments=query.instruments,
                     )
                     attrs = {
                         "query_id": query_id,
@@ -334,44 +331,6 @@ class DataClient:
         return table
 
     @staticmethod
-    def _panel_instruments(
-        table: pa.Table,
-        dataset: RegisteredDataset,
-        instruments: tuple[str, ...] | None,
-    ) -> tuple[str, ...] | None:
-        if instruments is None:
-            return None
-        if not DataClient._returns_suffixed_clickhouse_codes(dataset):
-            return instruments
-        if not instruments:
-            return instruments
-
-        instrument_column = dataset.spec.instrument_column
-        actual: list[str] = []
-        if instrument_column in table.column_names:
-            for value in table[instrument_column].to_pylist():
-                if value is None:
-                    continue
-                code = str(value)
-                if code not in actual:
-                    actual.append(code)
-
-        resolved: list[str] = []
-        for instrument in instruments:
-            if DataClient._is_suffixed_instrument(instrument):
-                candidates = (instrument,)
-            else:
-                prefix = f"{instrument}."
-                matches = tuple(
-                    code for code in actual if code == instrument or code.startswith(prefix)
-                )
-                candidates = matches or (instrument,)
-            for candidate in candidates:
-                if candidate not in resolved:
-                    resolved.append(candidate)
-        return tuple(resolved)
-
-    @staticmethod
     def _returns_suffixed_clickhouse_codes(dataset: RegisteredDataset) -> bool:
         spec = dataset.spec
         return (
@@ -458,6 +417,17 @@ class DataClient:
                 raise InvalidQueryError("Instrument identifiers must be non-empty strings")
             if len(set(requested_instruments)) != len(requested_instruments):
                 raise InvalidQueryError("Instruments cannot contain duplicates")
+            if DataClient._returns_suffixed_clickhouse_codes(dataset):
+                missing_suffix = [
+                    item
+                    for item in requested_instruments
+                    if not DataClient._is_suffixed_instrument(item)
+                ]
+                if missing_suffix:
+                    raise InvalidQueryError(
+                        f"Dataset {dataset.spec.name!r} requires instrument identifiers "
+                        "with exchange suffixes such as '000001.SZ'"
+                    )
         if limit is not None and (
             isinstance(limit, bool) or not isinstance(limit, int) or limit <= 0
         ):

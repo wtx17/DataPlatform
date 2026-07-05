@@ -38,7 +38,6 @@ _MINGHU_DAILY_PRICE_FIELDS = (
     "omax_op",
     "omin_op",
 )
-_MINGHU_CODE_SUFFIXES = (".SZ", ".SH", ".BJ")
 _QUERY_TABLE_ALIAS = "_q"
 
 
@@ -59,10 +58,6 @@ def _quote_identifier(value: str) -> str:
 
 def _qualified_identifier(value: str, table_alias: str) -> str:
     return f"{_quote_identifier(table_alias)}.{_quote_identifier(value)}"
-
-
-def _is_suffixed_instrument(value: str) -> bool:
-    return value.endswith(_MINGHU_CODE_SUFFIXES)
 
 
 class ClickHouseBackend:
@@ -193,35 +188,12 @@ class ClickHouseBackend:
             parameters["partition_end"] = query.end.date()
         if query.instruments is not None:
             instrument = _qualified_identifier(spec.instrument_column, _QUERY_TABLE_ALIAS)
+            if add_code_suffix:
+                instrument = self._suffixed_code_expression(_QUERY_TABLE_ALIAS)
             # clickhouse-connect serializes lists as ClickHouse Array literals (`[...]`).
             # Tuples become SQL tuple literals (`(...)`) and cannot bind to Array(String).
-            if add_code_suffix:
-                raw_instruments = [
-                    item for item in query.instruments if not _is_suffixed_instrument(item)
-                ]
-                suffixed_instruments = [
-                    item for item in query.instruments if _is_suffixed_instrument(item)
-                ]
-                instrument_clauses: list[str] = []
-                if raw_instruments:
-                    instrument_clauses.append(
-                        f"{instrument} IN {{raw_instruments:Array(String)}}"
-                    )
-                    parameters["raw_instruments"] = raw_instruments
-                if suffixed_instruments:
-                    instrument_clauses.append(
-                        f"{self._suffixed_code_expression(_QUERY_TABLE_ALIAS)} "
-                        "IN {suffixed_instruments:Array(String)}"
-                    )
-                    parameters["suffixed_instruments"] = suffixed_instruments
-                clauses.append(
-                    "(" + " OR ".join(instrument_clauses) + ")"
-                    if instrument_clauses
-                    else "0"
-                )
-            else:
-                clauses.append(f"{instrument} IN {{instruments:Array(String)}}")
-                parameters["instruments"] = list(query.instruments)
+            clauses.append(f"{instrument} IN {{instruments:Array(String)}}")
+            parameters["instruments"] = list(query.instruments)
         if clauses:
             sql += " WHERE " + " AND ".join(clauses)
         order_columns = spec.order_columns or (spec.time_column, spec.instrument_column)

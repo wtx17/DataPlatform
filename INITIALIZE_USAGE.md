@@ -54,7 +54,7 @@ frame = table.to_pandas()
 - 自动键列：`date`、`code`
 - 可生成宽表：是
 - 可返回长表：是
-- 说明：返回的 `code` 会根据 `exg` 自动补 `.SZ`、`.SH` 或 `.BJ` 后缀；`instruments` 可传原始代码或带后缀代码，推荐带后缀。价格字段默认按 `hfq` 后复权；传 `adjusted=False` 可返回原始价格。
+- 说明：返回的 `code` 会根据 `exg` 自动补 `.SZ`、`.SH` 或 `.BJ` 后缀；`instruments` 必须传带后缀代码。价格字段默认按 `hfq` 后复权；传 `adjusted=False` 可返回原始价格。
 
 宽表 `fields` 可选字段：`exg`, `open`, `high`, `low`, `close`, `pclose`, `change`, `pct_chg`, `volume`, `amount`, `hfq`, `ztprice`, `dtprice`, `omax_op`, `omin_op`。
 
@@ -108,7 +108,7 @@ frame = table.to_pandas()
 - 自动键列：`date_time`、`code`
 - 可生成宽表：是
 - 可返回长表：是
-- 说明：返回的 `code` 会根据 `exg` 自动补 `.SZ`、`.SH` 或 `.BJ` 后缀；`instruments` 可传原始代码或带后缀代码，推荐带后缀。分钟数据注册了 `partition_column='date'`，查询需要同时提供 `start` 和 `end`。
+- 说明：返回的 `code` 会根据 `exg` 自动补 `.SZ`、`.SH` 或 `.BJ` 后缀；`instruments` 必须传带后缀代码。分钟数据注册了 `partition_column='date'`，查询需要同时提供 `start` 和 `end`。
 
 宽表 `fields` 可选字段：`exg`, `time_int`, `open`, `close`, `high`, `low`, `volume`, `amount`, `date`。
 
@@ -156,7 +156,7 @@ frame = table.to_pandas()
 - 自动键列：`date_time`、`code`
 - 可生成宽表：否
 - 可返回长表：是
-- 说明：返回的 `code` 会根据 `exg` 自动补 `.SZ`、`.SH` 或 `.BJ` 后缀；`instruments` 可传原始代码或带后缀代码，推荐带后缀。逐笔事件同一时间同一股票可能多条，只能用 `get_table()`。
+- 说明：返回的 `code` 会根据 `exg` 自动补 `.SZ`、`.SH` 或 `.BJ` 后缀；`instruments` 必须传带后缀代码。逐笔事件同一时间同一股票可能多条，只能用 `get_table()`。
 
 宽表：不支持。
 

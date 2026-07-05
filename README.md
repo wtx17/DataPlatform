@@ -171,7 +171,7 @@ panels = data.get_panel(
 close = panels["close"]
 ```
 
-明湖 ClickHouse 表的原始 `code` 不含交易所后缀；查询返回时框架会根据 `exg` 自动补成 `.SZ`、`.SH` 或 `.BJ`。`instruments` 可以继续传原始代码（如 `000001`），也可以传带后缀代码（如 `000001.SZ`）；推荐使用带后缀代码以避免同一原始代码跨交易所时的歧义。
+明湖 ClickHouse 表的原始 `code` 不含交易所后缀；查询返回时框架会根据 `exg` 自动补成 `.SZ`、`.SH` 或 `.BJ`。查询这些数据集时，`instruments` 必须传带后缀代码，例如 `000001.SZ`。
 
 明湖日线原始价格没有复权。框架识别 `stock_base.daily` 的 `hfq` 后复权因子，默认按以下公式返回复权价格：
 
