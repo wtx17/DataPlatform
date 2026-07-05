@@ -41,6 +41,7 @@ from .models import (
 from .transforms import build_daily_panels, build_panels
 
 QueryMode = Literal["panel", "table"]
+_MINGHU_CODE_SUFFIXES = (".SZ", ".SH", ".BJ")
 
 
 class DataClient:
@@ -191,13 +192,16 @@ class DataClient:
                     )
                     record.result_shapes = {"table": [result.num_rows, result.num_columns]}
                 else:
+                    panel_instruments = self._panel_instruments(
+                        table, registered, query.instruments
+                    )
                     result = build_panels(
                         table,
                         dataset_name=dataset,
                         time_column=spec.time_column,
                         instrument_column=spec.instrument_column,
                         fields=query.fields,
-                        instruments=query.instruments,
+                        instruments=panel_instruments,
                     )
                     attrs = {
                         "query_id": query_id,
@@ -328,6 +332,57 @@ class DataClient:
             adjusted_values = pc.multiply(table[field], factor)
             table = table.set_column(index, field, adjusted_values)
         return table
+
+    @staticmethod
+    def _panel_instruments(
+        table: pa.Table,
+        dataset: RegisteredDataset,
+        instruments: tuple[str, ...] | None,
+    ) -> tuple[str, ...] | None:
+        if instruments is None:
+            return None
+        if not DataClient._returns_suffixed_clickhouse_codes(dataset):
+            return instruments
+        if not instruments:
+            return instruments
+
+        instrument_column = dataset.spec.instrument_column
+        actual: list[str] = []
+        if instrument_column in table.column_names:
+            for value in table[instrument_column].to_pylist():
+                if value is None:
+                    continue
+                code = str(value)
+                if code not in actual:
+                    actual.append(code)
+
+        resolved: list[str] = []
+        for instrument in instruments:
+            if DataClient._is_suffixed_instrument(instrument):
+                candidates = (instrument,)
+            else:
+                prefix = f"{instrument}."
+                matches = tuple(
+                    code for code in actual if code == instrument or code.startswith(prefix)
+                )
+                candidates = matches or (instrument,)
+            for candidate in candidates:
+                if candidate not in resolved:
+                    resolved.append(candidate)
+        return tuple(resolved)
+
+    @staticmethod
+    def _returns_suffixed_clickhouse_codes(dataset: RegisteredDataset) -> bool:
+        spec = dataset.spec
+        return (
+            isinstance(spec, ClickHouseDatasetSpec)
+            and spec.instrument_column == "code"
+            and "exg" in dataset.schema.names
+        )
+
+    @staticmethod
+    def _is_suffixed_instrument(value: str) -> bool:
+        return value.endswith(_MINGHU_CODE_SUFFIXES)
 
     @staticmethod
     def _validate_spec(spec: DatasetDefinition) -> None:

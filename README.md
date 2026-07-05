@@ -166,10 +166,12 @@ panels = data.get_panel(
     fields=["close", "volume"],
     start="2026-03-02 09:30:00",
     end="2026-03-02 10:00:00",
-    instruments=["000001"],
+    instruments=["000001.SZ"],
 )
 close = panels["close"]
 ```
+
+明湖 ClickHouse 表的原始 `code` 不含交易所后缀；查询返回时框架会根据 `exg` 自动补成 `.SZ`、`.SH` 或 `.BJ`。`instruments` 可以继续传原始代码（如 `000001`），也可以传带后缀代码（如 `000001.SZ`）；推荐使用带后缀代码以避免同一原始代码跨交易所时的歧义。
 
 明湖日线原始价格没有复权。框架识别 `stock_base.daily` 的 `hfq` 后复权因子，默认按以下公式返回复权价格：
 
@@ -214,7 +216,7 @@ ticks = data.get_table(
     fields=["price", "volume", "side", "seqno"],
     start="2026-03-02 09:30:00",
     end="2026-03-02 09:30:01",
-    instruments=["000001"],
+    instruments=["000001.SZ"],
     limit=100_000,
 )
 
@@ -222,7 +224,7 @@ print(ticks.schema)
 tick_df = ticks.to_pandas()
 ```
 
-`get_table` 同样支持 Parquet，返回值始终为 `pyarrow.Table`。它自动包含时间列和证券列，不对重复时间事件做聚合。ClickHouse 中的 `code` 保持数据库原值，不自动添加 `.SZ`、`.SH` 或 `.BJ` 后缀。
+`get_table` 同样支持 Parquet，返回值始终为 `pyarrow.Table`。它自动包含时间列和证券列，不对重复时间事件做聚合；明湖 ClickHouse 数据的 `code` 会按上述规则自动补交易所后缀。
 
 使用结束后关闭远程连接，也可以直接使用上下文管理器：
 

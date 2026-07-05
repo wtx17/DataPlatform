@@ -38,6 +38,8 @@ _MINGHU_DAILY_PRICE_FIELDS = (
     "omax_op",
     "omin_op",
 )
+_MINGHU_CODE_SUFFIXES = (".SZ", ".SH", ".BJ")
+_QUERY_TABLE_ALIAS = "_q"
 
 
 @dataclass(frozen=True, slots=True)
@@ -53,6 +55,14 @@ def _quote_identifier(value: str) -> str:
     if not parts or not all(_IDENTIFIER.fullmatch(part) for part in parts):
         raise DatasetRegistrationError(f"Invalid ClickHouse identifier: {value!r}")
     return ".".join(f"`{part}`" for part in parts)
+
+
+def _qualified_identifier(value: str, table_alias: str) -> str:
+    return f"{_quote_identifier(table_alias)}.{_quote_identifier(value)}"
+
+
+def _is_suffixed_instrument(value: str) -> bool:
+    return value.endswith(_MINGHU_CODE_SUFFIXES)
 
 
 class ClickHouseBackend:
@@ -135,15 +145,25 @@ class ClickHouseBackend:
             raise SchemaMismatchError("Invalid ClickHouse registered dataset")
         client = self._client(source.connection)
         selected = (spec.time_column, spec.instrument_column, *query.fields)
-        projection = self._projection(selected, source.column_types)
-        sql = f"SELECT {projection} FROM {_quote_identifier(source.table)}"
+        add_code_suffix = self._adds_code_suffix(spec, source)
+        projection = self._projection(
+            selected,
+            source.column_types,
+            table_alias=_QUERY_TABLE_ALIAS,
+            suffixed_column=spec.instrument_column if add_code_suffix else None,
+        )
+        sql = (
+            f"SELECT {projection} FROM {_quote_identifier(source.table)} "
+            f"AS {_quote_identifier(_QUERY_TABLE_ALIAS)}"
+        )
         clauses: list[str] = []
         parameters: dict[str, object] = {}
 
         time_type = source.column_types[spec.time_column]
         if query.start is not None:
             clauses.append(
-                f"{_quote_identifier(spec.time_column)} >= {{start:{time_type}}}"
+                f"{_qualified_identifier(spec.time_column, _QUERY_TABLE_ALIAS)} "
+                f">= {{start:{time_type}}}"
             )
             parameters["start"] = (
                 query.start.date()
@@ -151,14 +171,17 @@ class ClickHouseBackend:
                 else query.start
             )
         if query.end is not None:
-            clauses.append(f"{_quote_identifier(spec.time_column)} <= {{end:{time_type}}}")
+            clauses.append(
+                f"{_qualified_identifier(spec.time_column, _QUERY_TABLE_ALIAS)} "
+                f"<= {{end:{time_type}}}"
+            )
             parameters["end"] = (
                 query.end.date()
                 if time_type.startswith("Date") and not time_type.startswith("DateTime")
                 else query.end
             )
         if spec.partition_column and query.start is not None and query.end is not None:
-            partition = _quote_identifier(spec.partition_column)
+            partition = _qualified_identifier(spec.partition_column, _QUERY_TABLE_ALIAS)
             partition_type = source.column_types[spec.partition_column]
             clauses.extend(
                 [
@@ -169,17 +192,42 @@ class ClickHouseBackend:
             parameters["partition_start"] = query.start.date()
             parameters["partition_end"] = query.end.date()
         if query.instruments is not None:
-            clauses.append(
-                f"{_quote_identifier(spec.instrument_column)} "
-                "IN {instruments:Array(String)}"
-            )
+            instrument = _qualified_identifier(spec.instrument_column, _QUERY_TABLE_ALIAS)
             # clickhouse-connect serializes lists as ClickHouse Array literals (`[...]`).
             # Tuples become SQL tuple literals (`(...)`) and cannot bind to Array(String).
-            parameters["instruments"] = list(query.instruments)
+            if add_code_suffix:
+                raw_instruments = [
+                    item for item in query.instruments if not _is_suffixed_instrument(item)
+                ]
+                suffixed_instruments = [
+                    item for item in query.instruments if _is_suffixed_instrument(item)
+                ]
+                instrument_clauses: list[str] = []
+                if raw_instruments:
+                    instrument_clauses.append(
+                        f"{instrument} IN {{raw_instruments:Array(String)}}"
+                    )
+                    parameters["raw_instruments"] = raw_instruments
+                if suffixed_instruments:
+                    instrument_clauses.append(
+                        f"{self._suffixed_code_expression(_QUERY_TABLE_ALIAS)} "
+                        "IN {suffixed_instruments:Array(String)}"
+                    )
+                    parameters["suffixed_instruments"] = suffixed_instruments
+                clauses.append(
+                    "(" + " OR ".join(instrument_clauses) + ")"
+                    if instrument_clauses
+                    else "0"
+                )
+            else:
+                clauses.append(f"{instrument} IN {{instruments:Array(String)}}")
+                parameters["instruments"] = list(query.instruments)
         if clauses:
             sql += " WHERE " + " AND ".join(clauses)
         order_columns = spec.order_columns or (spec.time_column, spec.instrument_column)
-        sql += " ORDER BY " + ", ".join(_quote_identifier(item) for item in order_columns)
+        sql += " ORDER BY " + ", ".join(
+            _qualified_identifier(item, _QUERY_TABLE_ALIAS) for item in order_columns
+        )
         if query.limit is not None:
             sql += " LIMIT {limit:UInt64}"
             parameters["limit"] = query.limit
@@ -252,14 +300,40 @@ class ClickHouseBackend:
         return client
 
     @staticmethod
-    def _projection(columns: tuple[str, ...], column_types: dict[str, str]) -> str:
+    def _adds_code_suffix(spec: ClickHouseDatasetSpec, source: ClickHouseSource) -> bool:
+        return spec.instrument_column == "code" and "exg" in source.column_types
+
+    @staticmethod
+    def _suffixed_code_expression(table_alias: str) -> str:
+        code = _qualified_identifier("code", table_alias)
+        exchange = _qualified_identifier("exg", table_alias)
+        suffix = (
+            f"multiIf({exchange} = 1, '.SZ', "
+            f"{exchange} = 2, '.SH', "
+            f"{exchange} = 3, '.BJ', '')"
+        )
+        return f"concat({code}, {suffix})"
+
+    @staticmethod
+    def _projection(
+        columns: tuple[str, ...],
+        column_types: dict[str, str],
+        *,
+        table_alias: str,
+        suffixed_column: str | None,
+    ) -> str:
         expressions = []
         for column in columns:
-            identifier = _quote_identifier(column)
-            if column_types[column].startswith("FixedString"):
-                expressions.append(f"toString({identifier}) AS {identifier}")
+            output = _quote_identifier(column)
+            qualified = _qualified_identifier(column, table_alias)
+            if column == suffixed_column:
+                expressions.append(
+                    f"{ClickHouseBackend._suffixed_code_expression(table_alias)} AS {output}"
+                )
+            elif column_types[column].startswith("FixedString"):
+                expressions.append(f"toString({qualified}) AS {output}")
             else:
-                expressions.append(identifier)
+                expressions.append(f"{qualified} AS {output}")
         return ", ".join(expressions)
 
     @staticmethod

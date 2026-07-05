@@ -54,7 +54,7 @@ frame = table.to_pandas()
 - 自动键列：`date`、`code`
 - 可生成宽表：是
 - 可返回长表：是
-- 说明：价格字段默认按 `hfq` 后复权；传 `adjusted=False` 可返回原始价格。
+- 说明：返回的 `code` 会根据 `exg` 自动补 `.SZ`、`.SH` 或 `.BJ` 后缀；`instruments` 可传原始代码或带后缀代码，推荐带后缀。价格字段默认按 `hfq` 后复权；传 `adjusted=False` 可返回原始价格。
 
 宽表 `fields` 可选字段：`exg`, `open`, `high`, `low`, `close`, `pclose`, `change`, `pct_chg`, `volume`, `amount`, `hfq`, `ztprice`, `dtprice`, `omax_op`, `omin_op`。
 
@@ -64,7 +64,7 @@ panels = data.get_panel(
     fields=['close', 'volume'],
     start='2026-03-02',
     end='2026-03-06',
-    instruments=['000001', '600000'],
+    instruments=['000001.SZ', '600000.SH'],
 )
 first_panel = panels['close']
 ```
@@ -77,14 +77,14 @@ table = data.get_table(
     fields=['close', 'volume'],
     start='2026-03-02',
     end='2026-03-06',
-    instruments=['000001'],
+    instruments=['000001.SZ'],
 )
 frame = table.to_pandas()
 ```
 
 | 字段 | 类型 | 角色 | 说明 |
 | --- | --- | --- | --- |
-| `code` | `String` | 自动键列 | 证券代码 |
+| `code` | `String` | 自动键列 | 证券代码（返回时自动补 `.SZ`/`.SH`/`.BJ`） |
 | `date` | `Date` | 自动键列 | 日期 |
 | `exg` | `UInt8` | 可请求字段 | 交易所类型, 1为深市，2为沪市 |
 | `open` | `Nullable(Float64)` | 可请求字段 | 开盘价 |
@@ -108,7 +108,7 @@ frame = table.to_pandas()
 - 自动键列：`date_time`、`code`
 - 可生成宽表：是
 - 可返回长表：是
-- 说明：分钟数据注册了 `partition_column='date'`，查询需要同时提供 `start` 和 `end`。
+- 说明：返回的 `code` 会根据 `exg` 自动补 `.SZ`、`.SH` 或 `.BJ` 后缀；`instruments` 可传原始代码或带后缀代码，推荐带后缀。分钟数据注册了 `partition_column='date'`，查询需要同时提供 `start` 和 `end`。
 
 宽表 `fields` 可选字段：`exg`, `time_int`, `open`, `close`, `high`, `low`, `volume`, `amount`, `date`。
 
@@ -118,7 +118,7 @@ panels = data.get_panel(
     fields=['close', 'volume'],
     start='2026-03-02 09:30:00',
     end='2026-03-02 10:00:00',
-    instruments=['000001'],
+    instruments=['000001.SZ'],
 )
 first_panel = panels['close']
 ```
@@ -131,14 +131,14 @@ table = data.get_table(
     fields=['close', 'volume'],
     start='2026-03-02 09:30:00',
     end='2026-03-02 09:31:00',
-    instruments=['000001'],
+    instruments=['000001.SZ'],
 )
 frame = table.to_pandas()
 ```
 
 | 字段 | 类型 | 角色 | 说明 |
 | --- | --- | --- | --- |
-| `code` | `String` | 自动键列 | 证券代码 |
+| `code` | `String` | 自动键列 | 证券代码（返回时自动补 `.SZ`/`.SH`/`.BJ`） |
 | `date_time` | `DateTime('Asia/Shanghai')` | 自动键列 | 日期详情 |
 | `exg` | `UInt8` | 可请求字段 | 交易所的标识，深市是1，沪市是2, 北交所是3 |
 | `time_int` | `Int32` | 可请求字段 | 日期详情整形 |
@@ -156,7 +156,7 @@ frame = table.to_pandas()
 - 自动键列：`date_time`、`code`
 - 可生成宽表：否
 - 可返回长表：是
-- 说明：逐笔事件同一时间同一股票可能多条，只能用 `get_table()`。
+- 说明：返回的 `code` 会根据 `exg` 自动补 `.SZ`、`.SH` 或 `.BJ` 后缀；`instruments` 可传原始代码或带后缀代码，推荐带后缀。逐笔事件同一时间同一股票可能多条，只能用 `get_table()`。
 
 宽表：不支持。
 
@@ -168,7 +168,7 @@ table = data.get_table(
     fields=['price', 'volume', 'side', 'seqno'],
     start='2026-03-02 09:30:00',
     end='2026-03-02 09:31:00',
-    instruments=['000001'],
+    instruments=['000001.SZ'],
     limit=100_000,
 )
 frame = table.to_pandas()
@@ -176,7 +176,7 @@ frame = table.to_pandas()
 
 | 字段 | 类型 | 角色 | 说明 |
 | --- | --- | --- | --- |
-| `code` | `String` | 自动键列 | 证券代码 |
+| `code` | `String` | 自动键列 | 证券代码（返回时自动补 `.SZ`/`.SH`/`.BJ`） |
 | `date` | `Date` | 可请求字段 | 日期 |
 | `date_time` | `DateTime64(3, 'Asia/Shanghai')` | 自动键列 | 日期详情,业务时间,精确到百分之一秒 |
 | `exg` | `UInt8` | 可请求字段 | 交易所的标识,深市是1,沪市是2 |
