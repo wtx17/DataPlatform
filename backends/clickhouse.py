@@ -11,6 +11,7 @@ from typing import Any, Callable
 
 import pyarrow as pa
 
+from .clickhouse_catalog import MINGHU_TABLE_COLUMN_TYPES
 from ..exceptions import (
     BackendConnectionError,
     DatasetRegistrationError,
@@ -47,6 +48,7 @@ class ClickHouseSource:
     table: str
     column_types: dict[str, str]
     schema_hash: str
+    schema_source: str
 
 
 def _quote_identifier(value: str) -> str:
@@ -82,17 +84,15 @@ class ClickHouseBackend:
     def prepare(self, definition: DatasetDefinition) -> RegisteredDataset:
         if not isinstance(definition, ClickHouseDatasetSpec):
             raise DatasetRegistrationError("ClickHouse backend requires ClickHouseDatasetSpec")
-        client = self._client(definition.connection)
         table = _quote_identifier(definition.table)
-        try:
-            description = client.query_arrow(f"DESCRIBE TABLE {table}", use_strings=True)
-            names = description.column("name").to_pylist()
-            types = description.column("type").to_pylist()
-            column_types = {str(name): str(type_name) for name, type_name in zip(names, types)}
-        except Exception as exc:
-            raise RemoteQueryError(
-                f"Unable to inspect ClickHouse table {definition.table!r}: {exc}"
-            ) from exc
+        self._connection_config(definition.connection)
+        catalog_columns = MINGHU_TABLE_COLUMN_TYPES.get(definition.table)
+        if catalog_columns is None:
+            column_types = self._describe_column_types(definition, table)
+            schema_source = "remote"
+        else:
+            column_types = dict(catalog_columns)
+            schema_source = "catalog"
 
         required = {definition.time_column, definition.instrument_column}
         if definition.partition_column:
@@ -122,6 +122,7 @@ class ClickHouseBackend:
             definition.table,
             column_types,
             hashlib.sha256(normalized.encode()).hexdigest(),
+            schema_source,
         )
         adjustment = None
         if definition.table.lower() == "stock_base.daily" and "hfq" in column_types:
@@ -224,6 +225,7 @@ class ClickHouseBackend:
             "secure": config.secure,
             "table": source.table,
             "schema_hash": source.schema_hash,
+            "schema_source": source.schema_source,
         }
 
     def close(self) -> None:
@@ -235,9 +237,7 @@ class ClickHouseBackend:
         existing = self._clients.get(name)
         if existing is not None:
             return existing
-        config = self._configs.get(name)
-        if config is None:
-            raise DatasetRegistrationError(f"ClickHouse connection {name!r} is not configured")
+        config = self._connection_config(name)
         password = config.password
         if password is None and config.password_env:
             password = os.environ.get(config.password_env)
@@ -270,6 +270,30 @@ class ClickHouseBackend:
             ) from exc
         self._clients[name] = client
         return client
+
+    def _connection_config(self, name: str) -> ClickHouseConfig:
+        config = self._configs.get(name)
+        if config is None:
+            raise DatasetRegistrationError(f"ClickHouse connection {name!r} is not configured")
+        return config
+
+    def _describe_column_types(
+        self, definition: ClickHouseDatasetSpec, quoted_table: str
+    ) -> dict[str, str]:
+        client = self._client(definition.connection)
+        try:
+            description = client.query_arrow(
+                f"DESCRIBE TABLE {quoted_table}", use_strings=True
+            )
+            names = description.column("name").to_pylist()
+            types = description.column("type").to_pylist()
+            return {
+                str(name): str(type_name) for name, type_name in zip(names, types)
+            }
+        except Exception as exc:
+            raise RemoteQueryError(
+                f"Unable to inspect ClickHouse table {definition.table!r}: {exc}"
+            ) from exc
 
     @staticmethod
     def _adds_code_suffix(spec: ClickHouseDatasetSpec, source: ClickHouseSource) -> bool:

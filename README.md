@@ -109,7 +109,7 @@ echo $MINGHU_CLICKHOUSE_PASSWORD
 检查。
 
 
-连接并注册明湖汇数据库的三张表：
+连接并注册明湖汇数据库的五张表：
 
 ```python
 from quant_data import ClickHouseConfig, ClickHouseDatasetSpec, DataClient
@@ -136,6 +136,15 @@ data.register(
 )
 data.register(
     ClickHouseDatasetSpec(
+        name="minghu_index_daily",
+        connection="minghu",
+        table="index_base.daily",
+        time_column="date",
+        frequency="1d",
+    )
+)
+data.register(
+    ClickHouseDatasetSpec(
         name="minghu_m1",
         connection="minghu",
         table="stock_base.m1",
@@ -143,6 +152,17 @@ data.register(
         partition_column="date",
         order_columns=("date_time", "code"),
         frequency="1min",
+    )
+)
+data.register(
+    ClickHouseDatasetSpec(
+        name="minghu_tk",
+        connection="minghu",
+        table="stock_base.tk",
+        time_column="date_time",
+        partition_column="date",
+        order_columns=("date_time", "code", "time_int"),
+        panel_compatible=False,
     )
 )
 data.register(
@@ -158,7 +178,9 @@ data.register(
 )
 ```
 
-日线和分钟线可以直接构建宽表：
+上述五张内置明湖汇表使用包内维护的 schema catalog。注册这些表时不会创建 ClickHouse 客户端，也不会执行 `DESCRIBE TABLE`；连接、密码和远程表访问会在首次查询时校验。通过 `ClickHouseDatasetSpec` 注册 catalog 之外的自定义表时，仍会在注册阶段执行 `DESCRIBE TABLE` 以发现字段。查询审计中的 `source.schema_source` 会分别记录为 `catalog` 或 `remote`。
+
+股票日线、指数日线和分钟线可以直接构建宽表：
 
 ```python
 panels = data.get_panel(
@@ -206,7 +228,22 @@ adjusted_table = data.get_table(
 
 `hfq` 只会在内部按需读取；调用者没有请求该字段时，它不会出现在结果中。因子为 null 时复权价格同样为 null，框架不会把缺失因子隐式填为 1。
 
-分钟和逐笔数据必须同时提供 `start` 和 `end`。框架还会把时间范围转换成 `date` 条件下推，减少 ClickHouse 分区扫描。
+`index_base.daily` 没有复权因子，`minghu_index_daily` 始终返回数据库中的原始指数行情。
+
+分钟、盘口快照和逐笔数据必须同时提供 `start` 和 `end`。框架还会把时间范围转换成 `date` 条件下推，减少 ClickHouse 分区扫描。
+
+盘口快照在同一秒内可能有多条记录，因此 `minghu_tk` 只支持 `get_table`：
+
+```python
+snapshots = data.get_table(
+    "minghu_tk",
+    fields=["last", "total_volume", "bid1", "ask1"],
+    start="2026-03-02 09:30:00",
+    end="2026-03-02 09:31:00",
+    instruments=["000001.SZ"],
+    limit=100_000,
+)
+```
 
 逐笔数据可能在相同毫秒内存在多条事件，因此只能通过 `get_table` 查询：
 

@@ -49,6 +49,12 @@ _CLICKHOUSE_PANEL_SPECS = (
         frequency="1d",
     ),
     _ClickHouseRegistration(
+        name="minghu_index_daily",
+        table="index_base.daily",
+        time_column="date",
+        frequency="1d",
+    ),
+    _ClickHouseRegistration(
         name="minghu_m1",
         table="stock_base.m1",
         time_column="date_time",
@@ -59,6 +65,14 @@ _CLICKHOUSE_PANEL_SPECS = (
 )
 
 _CLICKHOUSE_LONG_SPECS = (
+    _ClickHouseRegistration(
+        name="minghu_tk",
+        table="stock_base.tk",
+        time_column="date_time",
+        partition_column="date",
+        order_columns=("date_time", "code", "time_int"),
+        panel_compatible=False,
+    ),
     _ClickHouseRegistration(
         name="minghu_zb",
         table="stock_base.zb",

@@ -20,6 +20,8 @@ data = initialize_data_client()
 | ClickHouse password | `QUANT_DATA_CLICKHOUSE_PASSWORD` 或 `MINGHU_CLICKHOUSE_PASSWORD` | 无 |
 | Tushare token | `QUANT_DATA_TUSHARE_TOKEN` 或 `TUSHARE_TOKEN` | 无 |
 
+默认注册的五张明湖汇 ClickHouse 表使用包内 schema catalog，初始化时不会连接 ClickHouse 或执行 `DESCRIBE TABLE`。连接与密码在首次查询时校验；catalog 之外的自定义 ClickHouse 表仍会在注册阶段远程读取 schema。查询审计中的 `source.schema_source` 用于区分 `catalog` 和 `remote` schema。
+
 通用宽表调用：
 
 ```python
@@ -102,6 +104,53 @@ frame = table.to_pandas()
 | `omax_op` | `Nullable(Float64)` | 可请求字段 | 集合可申报最大价格 |
 | `omin_op` | `Nullable(Float64)` | 可请求字段 | 集合可申报最小价格 |
 
+## `minghu_index_daily`
+
+- 来源：ClickHouse `index_base.daily` 明湖指数日线
+- 自动键列：`date`、`code`
+- 可生成宽表：是
+- 可返回长表：是
+- 说明：返回的 `code` 会根据 `exg` 自动补 `.SZ`、`.SH` 或 `.BJ` 后缀；`instruments` 必须传带后缀代码。指数日线没有复权因子，始终返回数据库原始行情。
+
+宽表 `fields` 可选字段：`exg`, `open`, `high`, `low`, `close`, `pclose`, `volume`, `amount`。
+
+```python
+panels = data.get_panel(
+    'minghu_index_daily',
+    fields=['close', 'volume'],
+    start='2026-03-02',
+    end='2026-03-06',
+    instruments=['000001.SH', '399001.SZ'],
+)
+first_panel = panels['close']
+```
+
+长表自动返回键列，`fields` 可选字段同下表中的“可请求字段”。
+
+```python
+table = data.get_table(
+    'minghu_index_daily',
+    fields=['close', 'volume'],
+    start='2026-03-02',
+    end='2026-03-06',
+    instruments=['000001.SH'],
+)
+frame = table.to_pandas()
+```
+
+| 字段 | 类型 | 角色 | 说明 |
+| --- | --- | --- | --- |
+| `code` | `String` | 自动键列 | 证券代码（返回时自动补 `.SZ`/`.SH`/`.BJ`） |
+| `date` | `Date` | 自动键列 | 日期 |
+| `exg` | `UInt8` | 可请求字段 | 交易所类型，1为深市，2为沪市 |
+| `open` | `Nullable(Float64)` | 可请求字段 | 开盘价 |
+| `high` | `Nullable(Float64)` | 可请求字段 | 最高价 |
+| `low` | `Nullable(Float64)` | 可请求字段 | 最低价 |
+| `close` | `Nullable(Float64)` | 可请求字段 | 收盘价 |
+| `pclose` | `Nullable(Float64)` | 可请求字段 | 昨收价 |
+| `volume` | `Nullable(Int64)` | 可请求字段 | 成交量(股) |
+| `amount` | `Nullable(Float64)` | 可请求字段 | 成交额 |
+
 ## `minghu_m1`
 
 - 来源：ClickHouse `stock_base.m1` 明湖 1 分钟线
@@ -149,6 +198,90 @@ frame = table.to_pandas()
 | `volume` | `Nullable(Float64)` | 可请求字段 |  |
 | `amount` | `Nullable(Float64)` | 可请求字段 |  |
 | `date` | `Date` | 可请求字段 | 日期 |
+
+## `minghu_tk`
+
+- 来源：ClickHouse `stock_base.tk` 明湖盘口快照
+- 自动键列：`date_time`、`code`
+- 可生成宽表：否
+- 可返回长表：是
+- 说明：返回的 `code` 会根据 `exg` 自动补 `.SZ`、`.SH` 或 `.BJ` 后缀；`instruments` 必须传带后缀代码。盘口快照在同一秒内可能有多条记录，只能使用 `get_table()`。该表按 `date` 分区，查询必须同时提供 `start` 和 `end`，并用 `time_int` 稳定排序秒内记录。
+
+宽表：不支持。
+
+长表自动返回键列，`fields` 可选字段同下表中的“可请求字段”。
+
+```python
+table = data.get_table(
+    'minghu_tk',
+    fields=['last', 'total_volume', 'bid1', 'ask1'],
+    start='2026-03-02 09:30:00',
+    end='2026-03-02 09:31:00',
+    instruments=['000001.SZ'],
+    limit=100_000,
+)
+frame = table.to_pandas()
+```
+
+| 字段 | 类型 | 角色 | 说明 |
+| --- | --- | --- | --- |
+| `code` | `String` | 自动键列 | 证券代码（返回时自动补 `.SZ`/`.SH`/`.BJ`） |
+| `date_time` | `DateTime('Asia/Shanghai')` | 自动键列 | 业务时间 |
+| `time_int` | `Int32` | 可请求字段 | date_time 日期详情整形 |
+| `exg` | `UInt8` | 可请求字段 | 交易所标识，1为深市，2为沪市 |
+| `date` | `Date` | 可请求字段 | 日期 |
+| `pclose` | `Nullable(Float64)` | 可请求字段 | 昨收价 |
+| `open` | `Nullable(Float64)` | 可请求字段 | 开始价 |
+| `high` | `Nullable(Float64)` | 可请求字段 | 最高价 |
+| `low` | `Nullable(Float64)` | 可请求字段 | 最低价 |
+| `last` | `Nullable(Float64)` | 可请求字段 | 最新价 |
+| `total_volume` | `Nullable(Int64)` | 可请求字段 | 成交总量 |
+| `total_value` | `Nullable(Float64)` | 可请求字段 | 成交总金额 |
+| `bid1` | `Nullable(Float64)` | 可请求字段 | 买1价格 |
+| `bid2` | `Nullable(Float64)` | 可请求字段 | 买2价格 |
+| `bid3` | `Nullable(Float64)` | 可请求字段 | 买3价格 |
+| `bid4` | `Nullable(Float64)` | 可请求字段 | 买4价格 |
+| `bid5` | `Nullable(Float64)` | 可请求字段 | 买5价格 |
+| `bid6` | `Nullable(Float64)` | 可请求字段 | 买6价格 |
+| `bid7` | `Nullable(Float64)` | 可请求字段 | 买7价格 |
+| `bid8` | `Nullable(Float64)` | 可请求字段 | 买8价格 |
+| `bid9` | `Nullable(Float64)` | 可请求字段 | 买9价格 |
+| `bid10` | `Nullable(Float64)` | 可请求字段 | 买10价格 |
+| `bidv1` | `Nullable(Int64)` | 可请求字段 | 买1量 |
+| `bidv2` | `Nullable(Int64)` | 可请求字段 | 买2量 |
+| `bidv3` | `Nullable(Int64)` | 可请求字段 | 买3量 |
+| `bidv4` | `Nullable(Int64)` | 可请求字段 | 买4量 |
+| `bidv5` | `Nullable(Int64)` | 可请求字段 | 买5量 |
+| `bidv6` | `Nullable(Int64)` | 可请求字段 | 买6量 |
+| `bidv7` | `Nullable(Int64)` | 可请求字段 | 买7量 |
+| `bidv8` | `Nullable(Int64)` | 可请求字段 | 买8量 |
+| `bidv9` | `Nullable(Int64)` | 可请求字段 | 买9量 |
+| `bidv10` | `Nullable(Int64)` | 可请求字段 | 买10量 |
+| `ask1` | `Nullable(Float64)` | 可请求字段 | 卖1价格 |
+| `ask2` | `Nullable(Float64)` | 可请求字段 | 卖2价格 |
+| `ask3` | `Nullable(Float64)` | 可请求字段 | 卖3价格 |
+| `ask4` | `Nullable(Float64)` | 可请求字段 | 卖4价格 |
+| `ask5` | `Nullable(Float64)` | 可请求字段 | 卖5价格 |
+| `ask6` | `Nullable(Float64)` | 可请求字段 | 卖6价格 |
+| `ask7` | `Nullable(Float64)` | 可请求字段 | 卖7价格 |
+| `ask8` | `Nullable(Float64)` | 可请求字段 | 卖8价格 |
+| `ask9` | `Nullable(Float64)` | 可请求字段 | 卖9价格 |
+| `ask10` | `Nullable(Float64)` | 可请求字段 | 卖10价格 |
+| `askv1` | `Nullable(Int64)` | 可请求字段 | 卖1量 |
+| `askv2` | `Nullable(Int64)` | 可请求字段 | 卖2量 |
+| `askv3` | `Nullable(Int64)` | 可请求字段 | 卖3量 |
+| `askv4` | `Nullable(Int64)` | 可请求字段 | 卖4量 |
+| `askv5` | `Nullable(Int64)` | 可请求字段 | 卖5量 |
+| `askv6` | `Nullable(Int64)` | 可请求字段 | 卖6量 |
+| `askv7` | `Nullable(Int64)` | 可请求字段 | 卖7量 |
+| `askv8` | `Nullable(Int64)` | 可请求字段 | 卖8量 |
+| `askv9` | `Nullable(Int64)` | 可请求字段 | 卖9量 |
+| `askv10` | `Nullable(Int64)` | 可请求字段 | 卖10量 |
+| `num_trades` | `Nullable(Int64)` | 可请求字段 | 成交笔数 |
+| `trading_phase_code` | `Nullable(String)` | 可请求字段 | 交易阶段代码 |
+| `close` | `Nullable(Float64)` | 可请求字段 | 收盘价 |
+| `ztprice` | `Nullable(Float64)` | 可请求字段 | 涨停价 |
+| `dtprice` | `Nullable(Float64)` | 可请求字段 | 跌停价 |
 
 ## `minghu_zb`
 
