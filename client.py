@@ -45,6 +45,36 @@ _MINGHU_CODE_SUFFIXES = (".SZ", ".SH", ".BJ")
 
 
 class DataClient:
+    """Register datasets and execute backend-independent data queries.
+
+    Parameters
+    ----------
+    audit_dir
+        Directory that receives one durable JSON audit record per query.
+    clickhouse_client_factory
+        Optional factory used to create ClickHouse clients. This is primarily
+        useful for dependency injection and offline tests.
+    tushare_client_factory
+        Optional factory used to create Tushare clients. This is primarily
+        useful for dependency injection and offline tests.
+
+    Notes
+    -----
+    A client starts with Parquet, ClickHouse, and Tushare backends but no
+    datasets. Remote connections are cached and released by :meth:`close`.
+    Use the client as a context manager to close them automatically.
+
+    Examples
+    --------
+    Register a local dataset and request one panel::
+
+        from quant_data import DataClient, DatasetSpec
+
+        with DataClient() as data:
+            data.register(DatasetSpec("daily", ["data/*.parquet"]))
+            close = data.get_panel("daily", ["close"])["close"]
+    """
+
     def __init__(
         self,
         audit_dir: str | Path = ".quant_data/audit",
@@ -63,12 +93,78 @@ class DataClient:
         self._audit = AuditWriter(audit_dir)
 
     def add_clickhouse_connection(self, name: str, config: ClickHouseConfig) -> None:
+        """Add or replace a named ClickHouse connection profile.
+
+        Parameters
+        ----------
+        name
+            Identifier referenced by :class:`ClickHouseDatasetSpec` objects.
+        config
+            Host, credentials, TLS, and timeout settings.
+
+        Raises
+        ------
+        DatasetRegistrationError
+            If the name, host, port, or timeout settings are invalid.
+
+        Notes
+        -----
+        No connection is opened until a query or a custom-table schema lookup
+        requires it. Replacing an already opened profile closes its client.
+        """
+
         self._clickhouse.add_connection(name, config)
 
     def add_tushare_connection(self, name: str, config: TushareConfig) -> None:
+        """Add or replace a named Tushare connection profile.
+
+        Parameters
+        ----------
+        name
+            Identifier referenced by :class:`TushareDatasetSpec` objects.
+        config
+            Token or token-environment configuration.
+
+        Raises
+        ------
+        DatasetRegistrationError
+            If the name or token configuration is invalid.
+
+        Notes
+        -----
+        Replacing an already initialized profile closes its client.
+        """
+
         self._tushare.add_connection(name, config)
 
     def register(self, spec: DatasetDefinition) -> None:
+        """Validate and register a dataset definition.
+
+        Parameters
+        ----------
+        spec
+            Parquet, ClickHouse, or Tushare dataset specification.
+
+        Raises
+        ------
+        DatasetRegistrationError
+            If the specification, connection, paths, schema, or backend is
+            invalid.
+        SchemaMismatchError
+            If storage schemas cannot be reconciled.
+        BackendConnectionError
+            If registration requires remote schema discovery and the backend
+            cannot be reached.
+        RemoteQueryError
+            If remote schema discovery fails.
+
+        Notes
+        -----
+        Registering a name again replaces the prior prepared dataset. Built-in
+        Minghu tables use an offline catalog; custom ClickHouse tables may run
+        ``DESCRIBE TABLE`` during registration.
+        """
+
         self._validate_spec(spec)
         backend = self._backends.get(spec.backend)
         if backend is None:
@@ -84,6 +180,55 @@ class DataClient:
         instruments: Sequence[str] | None = None,
         adjusted: bool | None = None,
     ) -> dict[str, pd.DataFrame]:
+        """Query fields as ``time × instrument`` Pandas panels.
+
+        Parameters
+        ----------
+        dataset
+            Registered dataset name.
+        fields
+            Non-key columns to return. Names must be non-empty and unique.
+        start, end
+            Optional inclusive time bounds. Values accepted by
+            :class:`pandas.Timestamp` are supported.
+        instruments
+            Instrument identifiers in desired output-column order. ``None``
+            requests all available instruments; an empty sequence requests an
+            empty panel.
+        adjusted
+            ``True`` forces configured price adjustment, ``False`` requests
+            raw values, and ``None`` uses the dataset default.
+
+        Returns
+        -------
+        dict[str, pandas.DataFrame]
+            One panel per requested field, preserving field order. Every panel
+            carries query metadata in ``DataFrame.attrs``.
+
+        Raises
+        ------
+        DatasetNotFoundError
+            If ``dataset`` has not been registered.
+        FieldNotFoundError
+            If a requested field is absent from the registered schema.
+        InvalidQueryError
+            If parameters are invalid or the dataset is event-shaped and
+            cannot be pivoted.
+        DuplicateObservationError
+            If an ordinary panel contains duplicate time/instrument pairs.
+        SchemaMismatchError
+            If result key columns are missing or contain nulls.
+        AuditWriteError
+            If the required audit record cannot be persisted.
+
+        Notes
+        -----
+        Query bounds are closed. Requested instruments without observations
+        remain as all-missing columns. Tushare ``pit_daily`` datasets align
+        disclosures to a trading calendar and forward-fill only after their
+        configured availability lag.
+        """
+
         result = self._execute(
             "panel", dataset, fields, start, end, instruments, limit=None, adjusted=adjusted
         )
@@ -99,19 +244,78 @@ class DataClient:
         limit: int | None = None,
         adjusted: bool | None = None,
     ) -> pa.Table:
+        """Query fields as a normalized Arrow long table.
+
+        Parameters
+        ----------
+        dataset
+            Registered dataset name.
+        fields
+            Non-key columns to return. Time and instrument keys are added
+            automatically.
+        start, end
+            Optional inclusive time bounds.
+        instruments
+            Optional instrument filter. ``None`` requests all instruments and
+            an empty sequence returns a typed empty table.
+        limit
+            Optional positive maximum number of rows.
+        adjusted
+            ``True`` forces configured price adjustment, ``False`` requests
+            raw values, and ``None`` uses the dataset default.
+
+        Returns
+        -------
+        pyarrow.Table
+            Long table with time and instrument keys first. Query identifiers,
+            dataset name, parameters, and adjustment state are stored in the
+            Arrow schema metadata.
+
+        Raises
+        ------
+        DatasetNotFoundError
+            If ``dataset`` has not been registered.
+        FieldNotFoundError
+            If a requested field is absent from the registered schema.
+        InvalidQueryError
+            If fields, bounds, instruments, adjustment, or limit are invalid.
+        SchemaMismatchError
+            If the backend result is inconsistent with the registered schema.
+        AuditWriteError
+            If the required audit record cannot be persisted.
+
+        Notes
+        -----
+        Event tables may contain repeated time/instrument pairs and should be
+        queried with this method. ``panel_mode`` affects only :meth:`get_panel`;
+        this method retains the ordinary Tushare period-query semantics.
+        """
+
         result = self._execute(
             "table", dataset, fields, start, end, instruments, limit, adjusted
         )
         return cast(pa.Table, result)
 
     def close(self) -> None:
+        """Close cached backend clients and release their resources.
+
+        Notes
+        -----
+        The built-in Parquet backend has no persistent connection. Calling
+        this method more than once is safe for the built-in backends.
+        """
+
         for backend in self._backends.values():
             backend.close()
 
     def __enter__(self) -> DataClient:
+        """Return this client when entering a context manager."""
+
         return self
 
     def __exit__(self, exc_type: object, exc_value: object, traceback: object) -> None:
+        """Close backend resources when leaving a context manager."""
+
         self.close()
 
     def _execute(

@@ -119,14 +119,31 @@ _TUSHARE_PIT_APIS = (
     "express_vip",
     "forecast",
     "forecast_vip",
-    "stk_holdernumber",
+    "stk_holdernumber"
 )
 
 
 def clickhouse_dataset_specs(
     connection: str = DEFAULT_CLICKHOUSE_CONNECTION,
 ) -> tuple[ClickHouseDatasetSpec, ...]:
-    """Return the project-standard ClickHouse dataset registrations."""
+    """Return the project-standard ClickHouse dataset specifications.
+
+    Parameters
+    ----------
+    connection
+        Connection profile referenced by every returned specification.
+
+    Returns
+    -------
+    tuple[ClickHouseDatasetSpec, ...]
+        Specifications for the built-in Minghu daily, index daily, minute,
+        snapshot, and transaction tables.
+
+    Notes
+    -----
+    This function only creates immutable specifications. It does not create a
+    ClickHouse client, read credentials, or access a remote table.
+    """
     specs: list[ClickHouseDatasetSpec] = []
     for item in (*_CLICKHOUSE_PANEL_SPECS, *_CLICKHOUSE_LONG_SPECS):
         specs.append(
@@ -149,7 +166,26 @@ def tushare_dataset_specs(
     *,
     include_pit: bool = True,
 ) -> tuple[TushareDatasetSpec, ...]:
-    """Return all Tushare dataset registrations supported by this package."""
+    """Return the project-standard Tushare dataset specifications.
+
+    Parameters
+    ----------
+    connection
+        Connection profile referenced by every returned specification.
+    include_pit
+        Include the daily point-in-time variants in addition to ordinary
+        period, membership, and event datasets.
+
+    Returns
+    -------
+    tuple[TushareDatasetSpec, ...]
+        Immutable specifications for every supported default Tushare dataset.
+
+    Notes
+    -----
+    This function does not initialize a Tushare client or read a token. Normal,
+    VIP, and PIT variants share the backend's schema catalog.
+    """
     specs: list[TushareDatasetSpec] = []
     for api_name in _TUSHARE_QUARTERLY_APIS:
         specs.append(
@@ -193,7 +229,24 @@ def tushare_dataset_specs(
 
 
 def registered_dataset_names(*, include_tushare_pit: bool = True) -> tuple[str, ...]:
-    """Return dataset names registered by initialize_data_client."""
+    """Return dataset names registered by
+    :func:`quant_data.initialize.initialize_data_client`.
+
+    Parameters
+    ----------
+    include_tushare_pit
+        Include point-in-time Tushare dataset names.
+
+    Returns
+    -------
+    tuple[str, ...]
+        ClickHouse names followed by Tushare names in registration order.
+
+    Notes
+    -----
+    The result is derived from local specifications and requires no credentials
+    or remote service access.
+    """
     names = [spec.name for spec in clickhouse_dataset_specs()]
     names.extend(
         spec.name for spec in tushare_dataset_specs(include_pit=include_tushare_pit)
@@ -218,7 +271,61 @@ def initialize_data_client(
     tushare_token: str | None = None,
     tushare_token_env: str | None = None,
 ) -> DataClient:
-    """Create a DataClient, connect remote backends, and register supported datasets."""
+    """Create a client and register the project-supported remote datasets.
+
+    Parameters
+    ----------
+    audit_dir
+        Audit output directory. When omitted,
+        ``QUANT_DATA_AUDIT_DIR`` or ``.quant_data/audit`` is used.
+    register_clickhouse
+        Configure ClickHouse and register the built-in Minghu datasets.
+    register_tushare
+        Configure Tushare and register its catalog-backed datasets.
+    register_tushare_pit
+        Include daily point-in-time Tushare variants.
+    clickhouse_connection
+        ClickHouse profile name referenced by generated specifications.
+    clickhouse_host
+        Server hostname. Environment variables and the project default are
+        consulted when omitted.
+    clickhouse_port
+        Server port. Environment variables and port 8123 are used when omitted.
+    clickhouse_username
+        Optional login name, with project environment-variable fallbacks.
+    clickhouse_password
+        Optional direct password value.
+    clickhouse_password_env
+        Environment variable from which the password is read on first access.
+    clickhouse_secure
+        Whether to enable TLS. Environment variables are used when omitted.
+    tushare_connection
+        Tushare profile name referenced by generated specifications.
+    tushare_token
+        Optional direct Tushare token.
+    tushare_token_env
+        Environment variable from which the token is read.
+
+    Returns
+    -------
+    DataClient
+        Configured client with the requested default datasets registered.
+
+    Raises
+    ------
+    BackendConnectionError
+        If Tushare registration is requested but its client cannot be
+        initialized from the configured token.
+    DatasetRegistrationError
+        If a connection or generated dataset specification is invalid.
+
+    Notes
+    -----
+    Built-in ClickHouse registrations use a local catalog and do not connect
+    until first query. Tushare registration prepares its catalog-backed source
+    and currently initializes the configured Tushare client. Importing this
+    module or calling the specification helpers remains side-effect free.
+    """
     client = DataClient(
         audit_dir=audit_dir
         if audit_dir is not None
@@ -271,7 +378,20 @@ def initialize_data_client(
 
 
 def initialize(**kwargs: Any) -> DataClient:
-    """Compatibility alias for initialize_data_client."""
+    """Call :func:`quant_data.initialize.initialize_data_client` with
+    compatibility keyword arguments.
+
+    Parameters
+    ----------
+    **kwargs
+        Keyword arguments accepted by
+        :func:`quant_data.initialize.initialize_data_client`.
+
+    Returns
+    -------
+    DataClient
+        Configured data client.
+    """
     return initialize_data_client(**kwargs)
 
 
@@ -296,6 +416,8 @@ def _env_bool(names: tuple[str, ...], default: bool) -> bool:
 
 
 def main() -> None:
+    """Initialize the default client and print registered dataset names."""
+
     client = initialize_data_client()
     try:
         names = registered_dataset_names()

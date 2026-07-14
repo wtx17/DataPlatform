@@ -21,6 +21,41 @@ def build_panels(
     fields: Sequence[str],
     instruments: Sequence[str] | None,
 ) -> dict[str, pd.DataFrame]:
+    """Pivot a unique Arrow long table into one panel per field.
+
+    Parameters
+    ----------
+    table
+        Arrow table containing key columns and requested value fields.
+    dataset_name
+        Name included in validation error messages.
+    time_column
+        Row-index key.
+    instrument_column
+        Output-column key.
+    fields
+        Value columns to pivot in caller order.
+    instruments
+        Requested output-column order, or ``None`` to sort observed identifiers.
+
+    Returns
+    -------
+    dict[str, pandas.DataFrame]
+        Field-keyed panels with a named time index and instrument columns.
+
+    Raises
+    ------
+    SchemaMismatchError
+        If a key column contains null values.
+    DuplicateObservationError
+        If more than one row has the same time/instrument key.
+
+    Notes
+    -----
+    Missing requested instruments are added as all-null columns. An empty input
+    returns typed-empty-shaped Pandas objects with the requested column order.
+    """
+
     frame = cast(pl.DataFrame, pl.from_arrow(table))
     if frame.height:
         null_keys = frame.filter(

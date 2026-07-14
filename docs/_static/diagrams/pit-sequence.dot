@@ -1,0 +1,25 @@
+digraph PitQuerySequence {
+  graph [rankdir=TB, bgcolor="transparent", pad="0.25", nodesep="0.22", ranksep="0.38"];
+  node [
+    shape=box,
+    style="rounded,filled",
+    color="#3B5B7A",
+    fillcolor="#EAF2F8",
+    fontcolor="#172B3A",
+    fontname="Helvetica",
+    fontsize=10.5
+  ];
+  edge [color="#566573", fontcolor="#34495E", fontname="Helvetica", fontsize=8.5];
+
+  request [label="PIT panel request\n[start, end]"];
+  buffer [label="Fetch disclosure events\nstart - buffer days"];
+  calendar [label="Fetch/cache trade calendar\nend + margin days", fillcolor="#E8F6F3"];
+  snap [label="Snap announcement\nto next open session"];
+  lag [label="Add disclosure_lag\nin trading sessions", fillcolor="#FCF3CF"];
+  dedupe [label="Same available day\nkeep latest report period"];
+  fill [label="Reindex + forward fill\nthen clip to request", fillcolor="#FDEBD0"];
+  result [label="Daily panels\nwith PIT metadata", fillcolor="#EBDEF0"];
+  audit [label="Audit calendar_aligned=true", fillcolor="#FADBD8"];
+
+  request -> buffer -> calendar -> snap -> lag -> dedupe -> fill -> result -> audit;
+}

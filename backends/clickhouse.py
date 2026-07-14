@@ -44,6 +44,23 @@ _QUERY_TABLE_ALIAS = "_q"
 
 @dataclass(frozen=True, slots=True)
 class ClickHouseSource:
+    """Store prepared ClickHouse source metadata.
+
+    Parameters
+    ----------
+    connection
+        Named connection profile.
+    table
+        Unquoted ``database.table`` identifier.
+    column_types
+        Mapping of column names to ClickHouse type strings.
+    schema_hash
+        Stable hash of the prepared schema.
+    schema_source
+        ``"catalog"`` for built-in schemas or ``"remote"`` after a
+        ``DESCRIBE TABLE`` lookup.
+    """
+
     connection: str
     table: str
     column_types: dict[str, str]
@@ -63,12 +80,47 @@ def _qualified_identifier(value: str, table_alias: str) -> str:
 
 
 class ClickHouseBackend:
+    """Scan ClickHouse tables through ``clickhouse-connect``.
+
+    Parameters
+    ----------
+    client_factory
+        Optional callable compatible with ``clickhouse_connect.get_client``.
+        The factory is invoked lazily and supports offline testing.
+
+    Notes
+    -----
+    Built-in Minghu schemas come from
+    ``quant_data.backends.clickhouse_catalog``. Their registration performs
+    no network access. Custom tables require remote schema discovery.
+    """
+
     def __init__(self, client_factory: Callable[..., Any] | None = None) -> None:
         self._configs: dict[str, ClickHouseConfig] = {}
         self._clients: dict[str, Any] = {}
         self._client_factory = client_factory
 
     def add_connection(self, name: str, config: ClickHouseConfig) -> None:
+        """Add or replace a validated connection profile.
+
+        Parameters
+        ----------
+        name
+            Identifier used by dataset specifications.
+        config
+            Connection and timeout settings.
+
+        Raises
+        ------
+        DatasetRegistrationError
+            If the name, host, port, or timeout is invalid.
+
+        Notes
+        -----
+        Adding a profile does not open a connection. Replacing an open profile
+        closes its cached client first.
+        """
+
         if not name or not _IDENTIFIER.fullmatch(name):
             raise DatasetRegistrationError(f"Invalid ClickHouse connection name: {name!r}")
         if not config.host:
@@ -82,6 +134,30 @@ class ClickHouseBackend:
         self._configs[name] = config
 
     def prepare(self, definition: DatasetDefinition) -> RegisteredDataset:
+        """Prepare a ClickHouse specification and Arrow schema.
+
+        Parameters
+        ----------
+        definition
+            ClickHouse dataset specification referencing a configured profile.
+
+        Returns
+        -------
+        RegisteredDataset
+            Prepared schema, source fingerprint inputs, and any recognized
+            price-adjustment policy.
+
+        Raises
+        ------
+        DatasetRegistrationError
+            If the definition, profile, identifiers, or configured columns are
+            invalid.
+        RemoteQueryError
+            If a custom table cannot be described remotely.
+        SchemaMismatchError
+            If a ClickHouse type cannot be mapped to Arrow.
+        """
+
         if not isinstance(definition, ClickHouseDatasetSpec):
             raise DatasetRegistrationError("ClickHouse backend requires ClickHouseDatasetSpec")
         table = _quote_identifier(definition.table)
@@ -135,6 +211,36 @@ class ClickHouseBackend:
         return RegisteredDataset(definition, schema, source, adjustment)
 
     def scan(self, dataset: RegisteredDataset, query: DataQuery) -> pa.Table:
+        """Run a parameterized ClickHouse query.
+
+        Parameters
+        ----------
+        dataset
+            Prepared ClickHouse dataset.
+        query
+            Normalized projection and filter request.
+
+        Returns
+        -------
+        pyarrow.Table
+            Ordered Arrow result from ``query_arrow``.
+
+        Raises
+        ------
+        BackendConnectionError
+            If the lazy connection cannot be created.
+        RemoteQueryError
+            If ClickHouse rejects or fails the query.
+        SchemaMismatchError
+            If the prepared source state is inconsistent.
+
+        Notes
+        -----
+        Time, partition, instrument, and limit values are bound parameters.
+        Minghu ``code`` values are projected and filtered with their ``.SZ``,
+        ``.SH``, or ``.BJ`` suffix derived from ``exg``.
+        """
+
         spec = dataset.spec
         source = dataset.source
         if not isinstance(spec, ClickHouseDatasetSpec) or not isinstance(source, ClickHouseSource):
@@ -212,6 +318,24 @@ class ClickHouseBackend:
             ) from exc
 
     def fingerprint(self, dataset: RegisteredDataset) -> dict[str, object]:
+        """Return sanitized connection, table, and schema provenance.
+
+        Parameters
+        ----------
+        dataset
+            Prepared ClickHouse dataset.
+
+        Returns
+        -------
+        dict[str, object]
+            JSON-serializable metadata excluding username and password.
+
+        Raises
+        ------
+        SchemaMismatchError
+            If the dataset was not prepared by this backend.
+        """
+
         spec = dataset.spec
         source = dataset.source
         if not isinstance(spec, ClickHouseDatasetSpec) or not isinstance(source, ClickHouseSource):
@@ -229,6 +353,8 @@ class ClickHouseBackend:
         }
 
     def close(self) -> None:
+        """Close all cached ClickHouse clients."""
+
         for client in self._clients.values():
             client.close()
         self._clients.clear()

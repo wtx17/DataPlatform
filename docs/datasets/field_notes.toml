@@ -1,0 +1,335 @@
+# Handwritten field semantics. docs/_scripts/sync_reference.py validates every
+# family name, dataset name, field name, and declared type against local code
+# catalogs before incorporating these descriptions into fields.md.
+
+[families.minghu_daily]
+datasets = ["minghu_daily"]
+summary = "股票日线以 `date × code` 为键。价格字段默认乘以 `hfq`；成交量、成交额、涨跌额和涨跌幅保持原值。"
+
+[families.minghu_daily.fields.code]
+type = "String"
+description = "证券代码；返回时依据 `exg` 自动补 `.SZ`、`.SH` 或 `.BJ`。"
+
+[families.minghu_daily.fields.date]
+type = "Date"
+description = "交易日期。"
+
+[families.minghu_daily.fields.exg]
+type = "UInt8"
+description = "交易所编码：1 为深市，2 为沪市，3 为北交所。"
+
+[families.minghu_daily.fields.close]
+type = "Nullable(Float64)"
+description = "收盘价；默认按 `hfq` 后复权。"
+
+[families.minghu_daily.fields.volume]
+type = "Nullable(Int64)"
+description = "成交量（股），不参与价格复权。"
+
+[families.minghu_daily.fields.amount]
+type = "Nullable(Float64)"
+description = "成交额，不参与价格复权。"
+
+[families.minghu_daily.fields.hfq]
+type = "Nullable(Float64)"
+description = "后复权乘数；缺失时复权价格也保持缺失。"
+
+[families.minghu_index_daily]
+datasets = ["minghu_index_daily"]
+summary = "指数日线以 `date × code` 为键，没有价格复权因子，始终返回数据库原值。"
+
+[families.minghu_index_daily.fields.code]
+type = "String"
+description = "指数代码；返回时依据 `exg` 自动补交易所后缀。"
+
+[families.minghu_index_daily.fields.date]
+type = "Date"
+description = "交易日期。"
+
+[families.minghu_index_daily.fields.close]
+type = "Nullable(Float64)"
+description = "指数收盘点位。"
+
+[families.minghu_index_daily.fields.volume]
+type = "Nullable(Int64)"
+description = "指数成交量。"
+
+[families.minghu_m1]
+datasets = ["minghu_m1"]
+summary = "一分钟行情按 `date` 分区，查询必须同时给出 `start` 和 `end`；`code` 返回带交易所后缀。"
+
+[families.minghu_m1.fields.code]
+type = "String"
+description = "证券代码；返回时自动补交易所后缀。"
+
+[families.minghu_m1.fields.date_time]
+type = "DateTime('Asia/Shanghai')"
+description = "Asia/Shanghai 时区的一分钟业务时间。"
+
+[families.minghu_m1.fields.time_int]
+type = "Int32"
+description = "分钟时间的整数编码。"
+
+[families.minghu_m1.fields.close]
+type = "Nullable(Float64)"
+description = "分钟收盘价。"
+
+[families.minghu_m1.fields.volume]
+type = "Nullable(Float64)"
+description = "分钟成交量。"
+
+[families.minghu_tk]
+datasets = ["minghu_tk"]
+summary = "盘口快照可能在同一秒内出现多行，只支持 `get_table()`；查询按 `date` 分区并以 `time_int` 稳定排序。"
+
+[families.minghu_tk.fields.code]
+type = "String"
+description = "证券代码；返回时自动补交易所后缀。"
+
+[families.minghu_tk.fields.date_time]
+type = "DateTime('Asia/Shanghai')"
+description = "Asia/Shanghai 时区的快照业务时间。"
+
+[families.minghu_tk.fields.time_int]
+type = "Int32"
+description = "同一秒内用于稳定排序的时间整数。"
+
+[families.minghu_tk.fields.last]
+type = "Nullable(Float64)"
+description = "最新成交价。"
+
+[families.minghu_tk.fields.total_volume]
+type = "Nullable(Int64)"
+description = "截至快照时点的累计成交量。"
+
+[families.minghu_tk.fields.trading_phase_code]
+type = "Nullable(String)"
+description = "交易阶段代码。"
+
+[families.minghu_zb]
+datasets = ["minghu_zb"]
+summary = "逐笔委托与成交是多事件长表，同一毫秒同一证券可以有多行，只支持 `get_table()`。"
+
+[families.minghu_zb.fields.code]
+type = "String"
+description = "证券代码；返回时自动补交易所后缀。"
+
+[families.minghu_zb.fields.date_time]
+type = "DateTime64(3, 'Asia/Shanghai')"
+description = "毫秒精度、Asia/Shanghai 时区的事件时间。"
+
+[families.minghu_zb.fields.price]
+type = "Nullable(Float64)"
+description = "委托或成交价格。"
+
+[families.minghu_zb.fields.side]
+type = "FixedString(1)"
+description = "买卖方向标记。后端转换为普通 Arrow 字符串。"
+
+[families.minghu_zb.fields.seqno]
+type = "UInt64"
+description = "业务序列号，用于同一时间内的稳定排序。"
+
+[families.income]
+datasets = ["income", "income_vip", "income_pit", "income_vip_pit"]
+summary = "普通、VIP 与 PIT 利润表共享 schema。普通面板以报告期为时间；PIT 面板以实际披露日对齐交易日。"
+
+[families.income.fields.ts_code]
+type = "string"
+description = "带交易所后缀的证券代码。"
+
+[families.income.fields.f_ann_date]
+type = "date32[day]"
+description = "实际披露日期，也是利润表 PIT 的 disclosure date。"
+
+[families.income.fields.end_date]
+type = "date32[day]"
+description = "财务报告期。"
+
+[families.income.fields.total_revenue]
+type = "double"
+description = "营业总收入。"
+
+[families.income.fields.n_income_attr_p]
+type = "double"
+description = "归属于母公司股东的净利润。"
+
+[families.balancesheet]
+datasets = ["balancesheet", "balancesheet_vip", "balancesheet_pit", "balancesheet_vip_pit"]
+summary = "普通、VIP 与 PIT 资产负债表共享 schema；PIT 使用 `f_ann_date` 作为披露日期。"
+
+[families.balancesheet.fields.ts_code]
+type = "string"
+description = "带交易所后缀的证券代码。"
+
+[families.balancesheet.fields.f_ann_date]
+type = "date32[day]"
+description = "实际披露日期，也是 PIT 的 disclosure date。"
+
+[families.balancesheet.fields.end_date]
+type = "date32[day]"
+description = "财务报告期。"
+
+[families.balancesheet.fields.total_assets]
+type = "double"
+description = "资产总计。"
+
+[families.balancesheet.fields.total_liab]
+type = "double"
+description = "负债合计。"
+
+[families.cashflow]
+datasets = ["cashflow", "cashflow_vip", "cashflow_pit", "cashflow_vip_pit"]
+summary = "普通、VIP 与 PIT 现金流量表共享 schema；PIT 使用 `f_ann_date` 作为披露日期。"
+
+[families.cashflow.fields.ts_code]
+type = "string"
+description = "带交易所后缀的证券代码。"
+
+[families.cashflow.fields.f_ann_date]
+type = "date32[day]"
+description = "实际披露日期，也是 PIT 的 disclosure date。"
+
+[families.cashflow.fields.end_date]
+type = "date32[day]"
+description = "财务报告期。"
+
+[families.cashflow.fields.n_cashflow_act]
+type = "double"
+description = "经营活动产生的现金流量净额。"
+
+[families.cashflow.fields.free_cashflow]
+type = "double"
+description = "企业自由现金流量。"
+
+[families.fina_indicator]
+datasets = ["fina_indicator", "fina_indicator_vip", "fina_indicator_pit", "fina_indicator_vip_pit"]
+summary = "普通、VIP 与 PIT 财务指标共享 schema。该家族没有 `f_ann_date`，PIT 使用 `ann_date`。"
+
+[families.fina_indicator.fields.ts_code]
+type = "string"
+description = "带交易所后缀的证券代码。"
+
+[families.fina_indicator.fields.ann_date]
+type = "date32[day]"
+description = "公告日期，也是 PIT 的 disclosure date。"
+
+[families.fina_indicator.fields.end_date]
+type = "date32[day]"
+description = "财务报告期。"
+
+[families.fina_indicator.fields.roe]
+type = "double"
+description = "净资产收益率。"
+
+[families.fina_indicator.fields.debt_to_assets]
+type = "double"
+description = "资产负债率。"
+
+[families.express]
+datasets = ["express", "express_vip", "express_pit", "express_vip_pit"]
+summary = "普通、VIP 与 PIT 业绩快报共享 schema；PIT 使用 `ann_date` 作为披露日期。"
+
+[families.express.fields.ts_code]
+type = "string"
+description = "带交易所后缀的证券代码。"
+
+[families.express.fields.ann_date]
+type = "date32[day]"
+description = "公告日期，也是 PIT 的 disclosure date。"
+
+[families.express.fields.end_date]
+type = "date32[day]"
+description = "业绩对应的报告期。"
+
+[families.express.fields.is_audit]
+type = "int64"
+description = "是否经过审计的标记。"
+
+[families.forecast]
+datasets = ["forecast", "forecast_vip", "forecast_pit", "forecast_vip_pit"]
+summary = "普通、VIP 与 PIT 业绩预告共享 schema；PIT 使用 `ann_date`，并保留首次公告日期用于修订优先级。"
+
+[families.forecast.fields.ts_code]
+type = "string"
+description = "带交易所后缀的证券代码。"
+
+[families.forecast.fields.ann_date]
+type = "date32[day]"
+description = "公告日期，也是 PIT 的 disclosure date。"
+
+[families.forecast.fields.first_ann_date]
+type = "date32[day]"
+description = "首次公告日期。"
+
+[families.forecast.fields.end_date]
+type = "date32[day]"
+description = "业绩预告对应的报告期。"
+
+[families.stk_holdernumber]
+datasets = ["stk_holdernumber", "stk_holdernumber_pit"]
+summary = "普通查询以统计截止日为时间；PIT 日频面板使用公告日并允许全市场查询。"
+
+[families.stk_holdernumber.fields.ts_code]
+type = "string"
+description = "带交易所后缀的证券代码。"
+
+[families.stk_holdernumber.fields.ann_date]
+type = "date32[day]"
+description = "股东人数公告日期，也是 PIT 的 disclosure date。"
+
+[families.stk_holdernumber.fields.end_date]
+type = "date32[day]"
+description = "股东人数统计截止日期。"
+
+[families.stk_holdernumber.fields.holder_num]
+type = "int64"
+description = "股东户数。"
+
+[families.industry_member]
+datasets = ["ci_index_member", "index_member_all"]
+summary = "中信和申万行业成分共享 schema；后端将 `in_date`/`out_date` 区间展开到开市日并生成内部 `date` 键。"
+
+[families.industry_member.fields.date]
+type = "date32[day]"
+description = "区间展开后生成的交易日期，不发送给远程 API。"
+
+[families.industry_member.fields.ts_code]
+type = "string"
+description = "带交易所后缀的成分证券代码。"
+
+[families.industry_member.fields.in_date]
+type = "date32[day]"
+description = "纳入行业成分的日期。"
+
+[families.industry_member.fields.out_date]
+type = "date32[day]"
+description = "移出行业成分的日期；空值表示仍在成分中。"
+
+[families.industry_member.fields.l1_name]
+type = "string"
+description = "一级行业名称。"
+
+[families.stk_holdertrade]
+datasets = ["stk_holdertrade"]
+summary = "股东增减持为一对多事件长表，默认以公告日为时间并只支持 `get_table()`。"
+
+[families.stk_holdertrade.fields.ts_code]
+type = "string"
+description = "带交易所后缀的证券代码。"
+
+[families.stk_holdertrade.fields.ann_date]
+type = "date32[day]"
+description = "增减持事件公告日期。"
+
+[families.stk_holdertrade.fields.holder_name]
+type = "string"
+description = "股东名称。"
+
+[families.stk_holdertrade.fields.change_vol]
+type = "double"
+description = "本次增减持股数。"
+
+[families.stk_holdertrade.fields.begin_date]
+type = "date32[day]"
+description = "增减持区间开始日期。"

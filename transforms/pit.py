@@ -26,7 +26,53 @@ def build_daily_panels(
     disclosure_lag: int,
     index_name: str = "trade_date",
 ) -> dict[str, pd.DataFrame]:
-    """Build daily, calendar-aligned, forward-filled PIT panels."""
+    """Build trading-day-aligned, forward-filled point-in-time panels.
+
+    Parameters
+    ----------
+    table
+        Disclosure-event table containing disclosure, instrument, period, and
+        requested field columns.
+    dataset_name
+        Name included in validation error messages.
+    disclosure_column
+        Date on which an event was disclosed.
+    instrument_column
+        Security identifier used for panel columns.
+    period_column
+        Reporting period used to resolve same-day competing events.
+    fields
+        Value columns to build in caller order.
+    instruments
+        Requested output-column order, or ``None`` to sort observed identifiers.
+    calendar
+        Ordered or unordered open trading dates covering buffering and lag.
+    panel_start, panel_end
+        Inclusive requested output boundaries.
+    disclosure_lag
+        Number of trading sessions after the snapped disclosure session before
+        a value becomes available.
+    index_name
+        Name assigned to the output trading-date index.
+
+    Returns
+    -------
+    dict[str, pandas.DataFrame]
+        Daily panels restricted to the requested interval.
+
+    Raises
+    ------
+    InvalidQueryError
+        If lag or bounds are invalid, the calendar is empty, or required event
+        columns are absent.
+
+    Notes
+    -----
+    Non-trading disclosure dates snap to the next session before lag is added.
+    For multiple periods becoming available on one day, the latest period wins.
+    Values are then forward-filled without using future disclosures.
+    """
+
     if disclosure_lag < 0:
         raise InvalidQueryError("disclosure_lag must be non-negative")
     if not isinstance(panel_start, pd.Timestamp) or not isinstance(panel_end, pd.Timestamp):

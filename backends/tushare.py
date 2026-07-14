@@ -657,6 +657,42 @@ _INDUSTRY_MEMBER_DATE_FIELDS = frozenset({"date", "in_date", "out_date"})
 
 @dataclass(frozen=True, slots=True)
 class TushareTableCatalog:
+    """Describe schema and query semantics for one Tushare API.
+
+    Parameters
+    ----------
+    api_name
+        Tushare method or generic-query API name.
+    schema
+        Complete Arrow schema exposed by the dataset.
+    query_style
+        Backend strategy such as ``"period_range"``, ``"date_range"``, or
+        ``"membership_interval"``.
+    period_param, start_param, end_param
+        Backend-managed remote date parameter names.
+    instrument_param
+        Remote security-code parameter name.
+    dedupe_keys, dedupe_sort
+        Keys and descending precedence columns used for ordinary-result
+        deduplication.
+    order_columns
+        Default normalized-result ordering.
+    requires_instrument
+        Whether ordinary queries must provide a stock universe.
+    default_time_column, default_frequency
+        Catalog overrides applied to default dataset specifications.
+    requires_time_range
+        Whether both time bounds are mandatory.
+    panel_compatible
+        Optional catalog override for panel support.
+    disclosure_column, period_column
+        Announcement and reporting-period columns used by PIT panels.
+    disclosure_start_param, disclosure_end_param
+        Remote date parameters used to fetch disclosure events.
+    interval_start_column, interval_end_column
+        Membership boundaries expanded over trading days.
+    """
+
     api_name: str
     schema: pa.Schema
     query_style: str
@@ -682,6 +718,20 @@ class TushareTableCatalog:
 
 @dataclass(frozen=True, slots=True)
 class TushareSource:
+    """Store prepared Tushare source metadata.
+
+    Parameters
+    ----------
+    connection
+        Named Tushare connection profile.
+    api_name
+        Catalog API name.
+    schema_hash
+        Stable hash of the catalog schema.
+    fixed_params
+        Sanitized constant API parameters from the dataset specification.
+    """
+
     connection: str
     api_name: str
     schema_hash: str
@@ -970,6 +1020,22 @@ _TUSHARE_TABLES = {
 
 
 class TushareBackend:
+    """Query catalog-backed Tushare APIs and normalize them to Arrow.
+
+    Parameters
+    ----------
+    client_factory
+        Optional callable receiving ``token=...`` and returning a Tushare-like
+        client. It supports deterministic tests without the Tushare package or
+        network access.
+
+    Notes
+    -----
+    The catalog defines schemas, API call shapes, deduplication precedence,
+    panel compatibility, disclosure columns, and membership-interval rules.
+    Trading calendars are cached per connection, exchange, year, and month.
+    """
+
     def __init__(self, client_factory: Callable[..., Any] | None = None) -> None:
         self._configs: dict[str, TushareConfig] = {}
         self._clients: dict[str, Any] = {}
@@ -977,6 +1043,26 @@ class TushareBackend:
         self._calendar_cache: dict[tuple[str, str, int, int], list[date]] = {}
 
     def add_connection(self, name: str, config: TushareConfig) -> None:
+        """Add or replace a validated Tushare connection profile.
+
+        Parameters
+        ----------
+        name
+            Identifier used by dataset specifications.
+        config
+            Direct token or token-environment configuration.
+
+        Raises
+        ------
+        DatasetRegistrationError
+            If the name or token configuration is invalid.
+
+        Notes
+        -----
+        The token environment variable is not read here. Replacing an
+        initialized profile closes its cached client.
+        """
+
         if not name or not _IDENTIFIER.fullmatch(name):
             raise DatasetRegistrationError(f"Invalid Tushare connection name: {name!r}")
         if config.token is not None and not config.token:
@@ -991,6 +1077,33 @@ class TushareBackend:
         self._configs[name] = config
 
     def prepare(self, definition: DatasetDefinition) -> RegisteredDataset:
+        """Normalize and prepare a catalog-backed Tushare dataset.
+
+        Parameters
+        ----------
+        definition
+            Tushare dataset specification referencing a configured profile and
+            supported API name.
+
+        Returns
+        -------
+        RegisteredDataset
+            Normalized specification, catalog schema, and source metadata.
+
+        Raises
+        ------
+        DatasetRegistrationError
+            If the definition, API name, profile, columns, or fixed parameters
+            are invalid.
+        BackendConnectionError
+            If the configured Tushare client cannot be initialized.
+
+        Notes
+        -----
+        Preparation initializes and caches the Tushare client but performs no
+        data API request.
+        """
+
         if not isinstance(definition, TushareDatasetSpec):
             raise DatasetRegistrationError("Tushare backend requires TushareDatasetSpec")
         catalog = self._catalog(definition.api_name)
@@ -1010,6 +1123,37 @@ class TushareBackend:
         return RegisteredDataset(definition, catalog.schema, source)
 
     def scan(self, dataset: RegisteredDataset, query: DataQuery) -> pa.Table:
+        """Fetch and normalize an ordinary Tushare query.
+
+        Parameters
+        ----------
+        dataset
+            Prepared Tushare dataset.
+        query
+            Normalized fields, closed time range, stock universe, and limit.
+
+        Returns
+        -------
+        pyarrow.Table
+            Typed, deduplicated, ordered long table.
+
+        Raises
+        ------
+        InvalidQueryError
+            If the API requires instruments or time bounds that are missing.
+        RemoteQueryError
+            If a Tushare or calendar call fails or returns an invalid object.
+        SchemaMismatchError
+            If returned columns, values, or prepared state conflict with the
+            catalog.
+
+        Notes
+        -----
+        Quarterly APIs are called per report period and, when required, per
+        instrument. Membership intervals are expanded over the trading
+        calendar before projection.
+        """
+
         spec = dataset.spec
         source = dataset.source
         if not isinstance(spec, TushareDatasetSpec) or not isinstance(source, TushareSource):
@@ -1036,6 +1180,38 @@ class TushareBackend:
     def scan_disclosure_events(
         self, dataset: RegisteredDataset, query: DataQuery
     ) -> pa.Table:
+        """Fetch disclosure events required by a point-in-time panel.
+
+        Parameters
+        ----------
+        dataset
+            Prepared Tushare PIT dataset.
+        query
+            Panel request with both time bounds.
+
+        Returns
+        -------
+        pyarrow.Table
+            Disclosure, instrument, period, and requested field columns ordered
+            by disclosure chronology.
+
+        Raises
+        ------
+        InvalidQueryError
+            If bounds, instruments, or disclosure-range parameters are not
+            available for the selected API.
+        RemoteQueryError
+            If a remote request fails.
+        SchemaMismatchError
+            If the response conflicts with the catalog schema.
+
+        Notes
+        -----
+        The fetch starts ``fetch_buffer_days`` before the requested panel to
+        carry previously disclosed values into its left boundary. Duplicate
+        disclosure events keep the catalog-defined latest revision.
+        """
+
         spec = dataset.spec
         source = dataset.source
         if not isinstance(spec, TushareDatasetSpec) or not isinstance(source, TushareSource):
@@ -1085,6 +1261,29 @@ class TushareBackend:
         return self._to_arrow(frame, catalog.schema, selected)
 
     def trade_calendar(self, dataset: RegisteredDataset, query: DataQuery) -> list[date]:
+        """Return the buffered trading calendar for a PIT panel.
+
+        Parameters
+        ----------
+        dataset
+            Prepared Tushare dataset.
+        query
+            Panel query with both time bounds.
+
+        Returns
+        -------
+        list[datetime.date]
+            Open sessions from the buffered start through the margin-adjusted
+            end date.
+
+        Raises
+        ------
+        InvalidQueryError
+            If either time bound is missing.
+        RemoteQueryError
+            If ``trade_cal`` fails or omits its date column.
+        """
+
         spec = dataset.spec
         source = dataset.source
         if not isinstance(spec, TushareDatasetSpec) or not isinstance(source, TushareSource):
@@ -1098,6 +1297,19 @@ class TushareBackend:
         return self._fetch_calendar(source.connection, spec.calendar_exchange, start, end)
 
     def pit_panel_columns(self, dataset: RegisteredDataset) -> tuple[str, str]:
+        """Return disclosure and reporting-period columns for a dataset.
+
+        Parameters
+        ----------
+        dataset
+            Prepared Tushare dataset.
+
+        Returns
+        -------
+        tuple[str, str]
+            Catalog disclosure column followed by period column.
+        """
+
         spec = dataset.spec
         source = dataset.source
         if not isinstance(spec, TushareDatasetSpec) or not isinstance(source, TushareSource):
@@ -1106,6 +1318,20 @@ class TushareBackend:
         return catalog.disclosure_column, catalog.period_column
 
     def fingerprint(self, dataset: RegisteredDataset) -> dict[str, object]:
+        """Return sanitized API and schema provenance.
+
+        Parameters
+        ----------
+        dataset
+            Prepared Tushare dataset.
+
+        Returns
+        -------
+        dict[str, object]
+            JSON-serializable connection name, API, schema hash, and stringified
+            fixed parameters. Tokens are excluded.
+        """
+
         spec = dataset.spec
         source = dataset.source
         if not isinstance(spec, TushareDatasetSpec) or not isinstance(source, TushareSource):
@@ -1119,6 +1345,8 @@ class TushareBackend:
         }
 
     def close(self) -> None:
+        """Close cached Tushare clients and clear calendar entries."""
+
         for client in self._clients.values():
             self._close_client(client)
         self._clients.clear()

@@ -12,3 +12,7 @@ env/
 
 
 .DS_Store
+
+# Sphinx build and autosummary output
+docs/_build/
+docs/api/generated/

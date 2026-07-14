@@ -20,9 +20,39 @@ def _quote_identifier(value: str) -> str:
 
 
 class DuckDBParquetBackend:
-    """Read all matching Parquet files as one logical long table."""
+    """Read matching Parquet files as one logical table with DuckDB.
+
+    Notes
+    -----
+    Registration resolves paths, validates key columns in every file, and
+    unifies Arrow schemas. Each scan uses a short-lived in-memory DuckDB
+    connection and pushes projection, time, instrument, ordering, and limit
+    operations into SQL.
+    """
 
     def prepare(self, definition: DatasetDefinition) -> RegisteredDataset:
+        """Resolve files and prepare a local Parquet dataset.
+
+        Parameters
+        ----------
+        definition
+            A :class:`quant_data.DatasetSpec` containing files, directories, or
+            glob patterns.
+
+        Returns
+        -------
+        RegisteredDataset
+            Dataset with a unified Arrow schema and resolved file paths.
+
+        Raises
+        ------
+        DatasetRegistrationError
+            If the definition type is wrong, no files match, or any file lacks
+            a configured key column.
+        SchemaMismatchError
+            If file schemas cannot be unified.
+        """
+
         if not isinstance(definition, DatasetSpec):
             raise DatasetRegistrationError("Parquet backend requires DatasetSpec")
         files = self._resolve_paths(definition.paths)
@@ -49,6 +79,19 @@ class DuckDBParquetBackend:
             raise SchemaMismatchError(f"Unable to unify Parquet schemas: {exc}") from exc
 
     def fingerprint(self, dataset: RegisteredDataset) -> dict[str, object]:
+        """Return path, size, and modification time for every source file.
+
+        Parameters
+        ----------
+        dataset
+            Prepared Parquet dataset.
+
+        Returns
+        -------
+        dict[str, object]
+            JSON-serializable backend and file provenance.
+        """
+
         fingerprints: list[dict[str, object]] = []
         for path in self._files(dataset):
             stat = os.stat(path)
@@ -58,6 +101,32 @@ class DuckDBParquetBackend:
         return {"backend": "parquet", "files": fingerprints}
 
     def scan(self, dataset: RegisteredDataset, query: DataQuery) -> pa.Table:
+        """Execute a projection and filter query with DuckDB.
+
+        Parameters
+        ----------
+        dataset
+            Prepared Parquet dataset.
+        query
+            Normalized query produced by :class:`quant_data.DataClient`.
+
+        Returns
+        -------
+        pyarrow.Table
+            Ordered long table with a timestamp-cast time column.
+
+        Raises
+        ------
+        SchemaMismatchError
+            If DuckDB or Arrow cannot execute or materialize the query.
+
+        Notes
+        -----
+        Instrument identifiers and bounds are bound parameters. Requested
+        instruments are joined through an Arrow relation rather than embedded
+        in SQL text.
+        """
+
         spec = dataset.spec
         time_col = _quote_identifier(spec.time_column)
         instrument_col = _quote_identifier(spec.instrument_column)
@@ -101,6 +170,13 @@ class DuckDBParquetBackend:
             connection.close()
 
     def close(self) -> None:
+        """Release backend resources.
+
+        Notes
+        -----
+        Scans close their own in-memory connections, so this is a no-op.
+        """
+
         return None
 
     @staticmethod

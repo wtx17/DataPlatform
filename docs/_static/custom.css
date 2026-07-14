@@ -1,0 +1,34 @@
+:root {
+  --pst-font-family-base: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --pst-font-family-heading: var(--pst-font-family-base);
+  --pst-font-family-monospace: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+}
+
+.bd-main .bd-content .bd-article-container {
+  max-width: 58rem;
+}
+
+.graphviz {
+  background-color: #fff;
+  border-radius: 0.35rem;
+  box-sizing: border-box;
+  margin: 1.25rem auto;
+  max-width: 100%;
+  overflow-x: auto;
+  padding: 1rem;
+  text-align: center;
+}
+
+.graphviz svg {
+  height: auto;
+  max-width: 100%;
+}
+
+table.docutils td,
+table.docutils th {
+  vertical-align: top;
+}
+
+code.literal {
+  overflow-wrap: anywhere;
+}

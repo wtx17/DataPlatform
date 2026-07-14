@@ -28,6 +28,13 @@ dev = [
   "pytest-cov>=6,<8",
   "ruff>=0.9,<1",
 ]
+docs = [
+  "Sphinx>=9.1,<9.2; python_version >= '3.12'",
+  "Sphinx>=9.0,<9.1; python_version < '3.12'",
+  "myst-parser>=5.1,<6",
+  "pydata-sphinx-theme>=0.19,<0.20",
+  "sphinx-autobuild>=2025.8,<2026",
+]
 
 [tool.hatch.build.targets.wheel]
 dev-mode-dirs = [".."]
