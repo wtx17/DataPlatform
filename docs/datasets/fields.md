@@ -18,20 +18,20 @@
 | `code` | `String` | 自动键列 | 证券代码；返回时依据 `exg` 自动补 `.SZ`、`.SH` 或 `.BJ`。 |
 | `date` | `Date` | 自动键列 | 交易日期。 |
 | `exg` | `UInt8` | 可请求字段 | 交易所编码：1 为深市，2 为沪市，3 为北交所。 |
-| `open` | `Nullable(Float64)` | 可请求字段 | — |
-| `high` | `Nullable(Float64)` | 可请求字段 | — |
-| `low` | `Nullable(Float64)` | 可请求字段 | — |
+| `open` | `Nullable(Float64)` | 可请求字段 | 开盘价；默认按 `hfq` 后复权。 |
+| `high` | `Nullable(Float64)` | 可请求字段 | 最高价；默认按 `hfq` 后复权。 |
+| `low` | `Nullable(Float64)` | 可请求字段 | 最低价；默认按 `hfq` 后复权。 |
 | `close` | `Nullable(Float64)` | 可请求字段 | 收盘价；默认按 `hfq` 后复权。 |
-| `pclose` | `Nullable(Float64)` | 可请求字段 | — |
-| `change` | `Nullable(Float64)` | 可请求字段 | — |
-| `pct_chg` | `Nullable(Float64)` | 可请求字段 | — |
+| `pclose` | `Nullable(Float64)` | 可请求字段 | 前收盘价，不参与复权。 |
+| `change` | `Nullable(Float64)` | 可请求字段 | 当日涨跌额，不参与复权。 |
+| `pct_chg` | `Nullable(Float64)` | 可请求字段 | 当日涨跌幅（%），不参与复权。 |
 | `volume` | `Nullable(Int64)` | 可请求字段 | 成交量（股），不参与价格复权。 |
 | `amount` | `Nullable(Float64)` | 可请求字段 | 成交额，不参与价格复权。 |
 | `hfq` | `Nullable(Float64)` | 可请求字段 | 后复权乘数；缺失时复权价格也保持缺失。 |
-| `ztprice` | `Nullable(Float64)` | 可请求字段 | — |
-| `dtprice` | `Nullable(Float64)` | 可请求字段 | — |
-| `omax_op` | `Nullable(Float64)` | 可请求字段 | — |
-| `omin_op` | `Nullable(Float64)` | 可请求字段 | — |
+| `ztprice` | `Nullable(Float64)` | 可请求字段 | 涨停价。 |
+| `dtprice` | `Nullable(Float64)` | 可请求字段 | 跌停价。 |
+| `omax_op` | `Nullable(Float64)` | 可请求字段 | 开盘集合竞价撮合期间的最高价。 |
+| `omin_op` | `Nullable(Float64)` | 可请求字段 | 开盘集合竞价撮合期间的最低价。 |
 
 ## `minghu_index_daily`：明湖指数日线
 
@@ -44,14 +44,14 @@
 | --- | --- | --- | --- |
 | `code` | `String` | 自动键列 | 指数代码；返回时依据 `exg` 自动补交易所后缀。 |
 | `date` | `Date` | 自动键列 | 交易日期。 |
-| `exg` | `UInt8` | 可请求字段 | — |
-| `open` | `Nullable(Float64)` | 可请求字段 | — |
-| `high` | `Nullable(Float64)` | 可请求字段 | — |
-| `low` | `Nullable(Float64)` | 可请求字段 | — |
+| `exg` | `UInt8` | 可请求字段 | 交易所编码：1 为深市，2 为沪市，3 为北交所。 |
+| `open` | `Nullable(Float64)` | 可请求字段 | 指数开盘点位。 |
+| `high` | `Nullable(Float64)` | 可请求字段 | 指数最高点位。 |
+| `low` | `Nullable(Float64)` | 可请求字段 | 指数最低点位。 |
 | `close` | `Nullable(Float64)` | 可请求字段 | 指数收盘点位。 |
-| `pclose` | `Nullable(Float64)` | 可请求字段 | — |
+| `pclose` | `Nullable(Float64)` | 可请求字段 | 指数前收盘点位。 |
 | `volume` | `Nullable(Int64)` | 可请求字段 | 指数成交量。 |
-| `amount` | `Nullable(Float64)` | 可请求字段 | — |
+| `amount` | `Nullable(Float64)` | 可请求字段 | 指数成交额。 |
 
 ## `minghu_m1`：明湖一分钟线
 
@@ -64,15 +64,15 @@
 | --- | --- | --- | --- |
 | `code` | `String` | 自动键列 | 证券代码；返回时自动补交易所后缀。 |
 | `date_time` | `DateTime('Asia/Shanghai')` | 自动键列 | Asia/Shanghai 时区的一分钟业务时间。 |
-| `exg` | `UInt8` | 可请求字段 | — |
+| `exg` | `UInt8` | 可请求字段 | 交易所编码：1 为深市，2 为沪市，3 为北交所。 |
 | `time_int` | `Int32` | 可请求字段 | 分钟时间的整数编码。 |
-| `open` | `Nullable(Float64)` | 可请求字段 | — |
+| `open` | `Nullable(Float64)` | 可请求字段 | 分钟开盘价。 |
 | `close` | `Nullable(Float64)` | 可请求字段 | 分钟收盘价。 |
-| `high` | `Nullable(Float64)` | 可请求字段 | — |
-| `low` | `Nullable(Float64)` | 可请求字段 | — |
+| `high` | `Nullable(Float64)` | 可请求字段 | 分钟最高价。 |
+| `low` | `Nullable(Float64)` | 可请求字段 | 分钟最低价。 |
 | `volume` | `Nullable(Float64)` | 可请求字段 | 分钟成交量。 |
-| `amount` | `Nullable(Float64)` | 可请求字段 | — |
-| `date` | `Date` | 可请求字段 | 交易日期。 |
+| `amount` | `Nullable(Float64)` | 可请求字段 | 分钟成交额。 |
+| `date` | `Date` | 可请求字段 | 行情所属交易日期（按 `date` 分区）。 |
 
 ## `minghu_tk`：明湖盘口快照
 
@@ -86,25 +86,25 @@
 | `code` | `String` | 自动键列 | 证券代码；返回时自动补交易所后缀。 |
 | `date_time` | `DateTime('Asia/Shanghai')` | 自动键列 | Asia/Shanghai 时区的快照业务时间。 |
 | `time_int` | `Int32` | 可请求字段 | 同一秒内用于稳定排序的时间整数。 |
-| `exg` | `UInt8` | 可请求字段 | — |
-| `date` | `Date` | 可请求字段 | 交易日期。 |
-| `pclose` | `Nullable(Float64)` | 可请求字段 | — |
-| `open` | `Nullable(Float64)` | 可请求字段 | — |
-| `high` | `Nullable(Float64)` | 可请求字段 | — |
-| `low` | `Nullable(Float64)` | 可请求字段 | — |
+| `exg` | `UInt8` | 可请求字段 | 交易所编码：1 为深市，2 为沪市，3 为北交所。 |
+| `date` | `Date` | 可请求字段 | 快照所属交易日期（按 `date` 分区）。 |
+| `pclose` | `Nullable(Float64)` | 可请求字段 | 前收盘价。 |
+| `open` | `Nullable(Float64)` | 可请求字段 | 当日开盘价。 |
+| `high` | `Nullable(Float64)` | 可请求字段 | 截至快照时点的当日最高价。 |
+| `low` | `Nullable(Float64)` | 可请求字段 | 截至快照时点的当日最低价。 |
 | `last` | `Nullable(Float64)` | 可请求字段 | 最新成交价。 |
 | `total_volume` | `Nullable(Int64)` | 可请求字段 | 截至快照时点的累计成交量。 |
-| `total_value` | `Nullable(Float64)` | 可请求字段 | — |
-| `bid1` | `Nullable(Float64)` | 可请求字段 | 买 1 档价格。 |
-| `bid2` | `Nullable(Float64)` | 可请求字段 | 买 2 档价格。 |
-| `bid3` | `Nullable(Float64)` | 可请求字段 | 买 3 档价格。 |
-| `bid4` | `Nullable(Float64)` | 可请求字段 | 买 4 档价格。 |
-| `bid5` | `Nullable(Float64)` | 可请求字段 | 买 5 档价格。 |
-| `bid6` | `Nullable(Float64)` | 可请求字段 | 买 6 档价格。 |
-| `bid7` | `Nullable(Float64)` | 可请求字段 | 买 7 档价格。 |
-| `bid8` | `Nullable(Float64)` | 可请求字段 | 买 8 档价格。 |
-| `bid9` | `Nullable(Float64)` | 可请求字段 | 买 9 档价格。 |
-| `bid10` | `Nullable(Float64)` | 可请求字段 | 买 10 档价格。 |
+| `total_value` | `Nullable(Float64)` | 可请求字段 | 截至快照时点的累计成交额。 |
+| `bid1` | `Nullable(Float64)` | 可请求字段 | 买 1 档委托价。 |
+| `bid2` | `Nullable(Float64)` | 可请求字段 | 买 2 档委托价。 |
+| `bid3` | `Nullable(Float64)` | 可请求字段 | 买 3 档委托价。 |
+| `bid4` | `Nullable(Float64)` | 可请求字段 | 买 4 档委托价。 |
+| `bid5` | `Nullable(Float64)` | 可请求字段 | 买 5 档委托价。 |
+| `bid6` | `Nullable(Float64)` | 可请求字段 | 买 6 档委托价。 |
+| `bid7` | `Nullable(Float64)` | 可请求字段 | 买 7 档委托价。 |
+| `bid8` | `Nullable(Float64)` | 可请求字段 | 买 8 档委托价。 |
+| `bid9` | `Nullable(Float64)` | 可请求字段 | 买 9 档委托价。 |
+| `bid10` | `Nullable(Float64)` | 可请求字段 | 买 10 档委托价。 |
 | `bidv1` | `Nullable(Int64)` | 可请求字段 | 买 1 档委托量。 |
 | `bidv2` | `Nullable(Int64)` | 可请求字段 | 买 2 档委托量。 |
 | `bidv3` | `Nullable(Int64)` | 可请求字段 | 买 3 档委托量。 |
@@ -115,16 +115,16 @@
 | `bidv8` | `Nullable(Int64)` | 可请求字段 | 买 8 档委托量。 |
 | `bidv9` | `Nullable(Int64)` | 可请求字段 | 买 9 档委托量。 |
 | `bidv10` | `Nullable(Int64)` | 可请求字段 | 买 10 档委托量。 |
-| `ask1` | `Nullable(Float64)` | 可请求字段 | 卖 1 档价格。 |
-| `ask2` | `Nullable(Float64)` | 可请求字段 | 卖 2 档价格。 |
-| `ask3` | `Nullable(Float64)` | 可请求字段 | 卖 3 档价格。 |
-| `ask4` | `Nullable(Float64)` | 可请求字段 | 卖 4 档价格。 |
-| `ask5` | `Nullable(Float64)` | 可请求字段 | 卖 5 档价格。 |
-| `ask6` | `Nullable(Float64)` | 可请求字段 | 卖 6 档价格。 |
-| `ask7` | `Nullable(Float64)` | 可请求字段 | 卖 7 档价格。 |
-| `ask8` | `Nullable(Float64)` | 可请求字段 | 卖 8 档价格。 |
-| `ask9` | `Nullable(Float64)` | 可请求字段 | 卖 9 档价格。 |
-| `ask10` | `Nullable(Float64)` | 可请求字段 | 卖 10 档价格。 |
+| `ask1` | `Nullable(Float64)` | 可请求字段 | 卖 1 档委托价。 |
+| `ask2` | `Nullable(Float64)` | 可请求字段 | 卖 2 档委托价。 |
+| `ask3` | `Nullable(Float64)` | 可请求字段 | 卖 3 档委托价。 |
+| `ask4` | `Nullable(Float64)` | 可请求字段 | 卖 4 档委托价。 |
+| `ask5` | `Nullable(Float64)` | 可请求字段 | 卖 5 档委托价。 |
+| `ask6` | `Nullable(Float64)` | 可请求字段 | 卖 6 档委托价。 |
+| `ask7` | `Nullable(Float64)` | 可请求字段 | 卖 7 档委托价。 |
+| `ask8` | `Nullable(Float64)` | 可请求字段 | 卖 8 档委托价。 |
+| `ask9` | `Nullable(Float64)` | 可请求字段 | 卖 9 档委托价。 |
+| `ask10` | `Nullable(Float64)` | 可请求字段 | 卖 10 档委托价。 |
 | `askv1` | `Nullable(Int64)` | 可请求字段 | 卖 1 档委托量。 |
 | `askv2` | `Nullable(Int64)` | 可请求字段 | 卖 2 档委托量。 |
 | `askv3` | `Nullable(Int64)` | 可请求字段 | 卖 3 档委托量。 |
@@ -135,11 +135,11 @@
 | `askv8` | `Nullable(Int64)` | 可请求字段 | 卖 8 档委托量。 |
 | `askv9` | `Nullable(Int64)` | 可请求字段 | 卖 9 档委托量。 |
 | `askv10` | `Nullable(Int64)` | 可请求字段 | 卖 10 档委托量。 |
-| `num_trades` | `Nullable(Int64)` | 可请求字段 | — |
+| `num_trades` | `Nullable(Int64)` | 可请求字段 | 截至快照时点的累计成交笔数。 |
 | `trading_phase_code` | `Nullable(String)` | 可请求字段 | 交易阶段代码。 |
-| `close` | `Nullable(Float64)` | 可请求字段 | — |
-| `ztprice` | `Nullable(Float64)` | 可请求字段 | — |
-| `dtprice` | `Nullable(Float64)` | 可请求字段 | — |
+| `close` | `Nullable(Float64)` | 可请求字段 | 当日收盘价。 |
+| `ztprice` | `Nullable(Float64)` | 可请求字段 | 涨停价。 |
+| `dtprice` | `Nullable(Float64)` | 可请求字段 | 跌停价。 |
 
 ## `minghu_zb`：明湖逐笔事件
 
@@ -151,23 +151,23 @@
 | 字段 | 类型 | 角色 | 说明 |
 | --- | --- | --- | --- |
 | `code` | `String` | 自动键列 | 证券代码；返回时自动补交易所后缀。 |
-| `date` | `Date` | 可请求字段 | 交易日期。 |
+| `date` | `Date` | 可请求字段 | 事件所属交易日期（按 `date` 分区）。 |
 | `date_time` | `DateTime64(3, 'Asia/Shanghai')` | 自动键列 | 毫秒精度、Asia/Shanghai 时区的事件时间。 |
-| `exg` | `UInt8` | 可请求字段 | — |
-| `time_int` | `Int32` | 可请求字段 | — |
+| `exg` | `UInt8` | 可请求字段 | 交易所编码：1 为深市，2 为沪市，3 为北交所。 |
+| `time_int` | `Int32` | 可请求字段 | 毫秒级事件时间的整数编码，配合 `seqno` 用于稳定排序。 |
 | `price` | `Nullable(Float64)` | 可请求字段 | 委托或成交价格。 |
-| `volume` | `Nullable(Int64)` | 可请求字段 | — |
+| `volume` | `Nullable(Int64)` | 可请求字段 | 委托或成交数量。 |
 | `side` | `FixedString(1)` | 可请求字段 | 买卖方向标记。后端转换为普通 Arrow 字符串。 |
-| `type` | `FixedString(1)` | 可请求字段 | — |
-| `trade_flag` | `FixedString(1)` | 可请求字段 | — |
-| `chno` | `UInt64` | 可请求字段 | — |
-| `bidno` | `Nullable(Int64)` | 可请求字段 | — |
-| `askno` | `Nullable(Int64)` | 可请求字段 | — |
-| `ordno` | `Nullable(Int64)` | 可请求字段 | — |
+| `type` | `FixedString(1)` | 可请求字段 | 业务类型标记：区分委托与成交。后端转换为普通 Arrow 字符串。 |
+| `trade_flag` | `FixedString(1)` | 可请求字段 | 成交方向或成交标记。后端转换为普通 Arrow 字符串。 |
+| `chno` | `UInt64` | 可请求字段 | 行情通道号。 |
+| `bidno` | `Nullable(Int64)` | 可请求字段 | 买方委托号。 |
+| `askno` | `Nullable(Int64)` | 可请求字段 | 卖方委托号。 |
+| `ordno` | `Nullable(Int64)` | 可请求字段 | 原始委托号。 |
 | `seqno` | `UInt64` | 可请求字段 | 业务序列号，用于同一时间内的稳定排序。 |
-| `ctype` | `FixedString(1)` | 可请求字段 | — |
-| `cbidno` | `Nullable(Int64)` | 可请求字段 | — |
-| `caskno` | `Nullable(Int64)` | 可请求字段 | — |
+| `ctype` | `FixedString(1)` | 可请求字段 | 撤单类型标记。后端转换为普通 Arrow 字符串。 |
+| `cbidno` | `Nullable(Int64)` | 可请求字段 | 撤单对应的买方委托号。 |
+| `caskno` | `Nullable(Int64)` | 可请求字段 | 撤单对应的卖方委托号。 |
 
 ## `income`：Tushare 利润表
 
@@ -185,84 +185,84 @@
 | `report_type` | `string` | 可请求字段 | 报告类型。 |
 | `comp_type` | `string` | 可请求字段 | 公司类型。 |
 | `end_type` | `string` | 可请求字段 | 报告期类型。 |
-| `basic_eps` | `double` | 可请求字段 | — |
-| `diluted_eps` | `double` | 可请求字段 | — |
+| `basic_eps` | `double` | 可请求字段 | 基本每股收益。 |
+| `diluted_eps` | `double` | 可请求字段 | 稀释每股收益。 |
 | `total_revenue` | `double` | 可请求字段 | 营业总收入。 |
-| `revenue` | `double` | 可请求字段 | — |
-| `int_income` | `double` | 可请求字段 | — |
-| `prem_earned` | `double` | 可请求字段 | — |
-| `comm_income` | `double` | 可请求字段 | — |
-| `n_commis_income` | `double` | 可请求字段 | — |
-| `n_oth_income` | `double` | 可请求字段 | — |
-| `n_oth_b_income` | `double` | 可请求字段 | — |
-| `prem_income` | `double` | 可请求字段 | — |
-| `out_prem` | `double` | 可请求字段 | — |
-| `une_prem_reser` | `double` | 可请求字段 | — |
-| `reins_income` | `double` | 可请求字段 | — |
-| `n_sec_tb_income` | `double` | 可请求字段 | — |
-| `n_sec_uw_income` | `double` | 可请求字段 | — |
-| `n_asset_mg_income` | `double` | 可请求字段 | — |
-| `oth_b_income` | `double` | 可请求字段 | — |
-| `fv_value_chg_gain` | `double` | 可请求字段 | — |
-| `invest_income` | `double` | 可请求字段 | — |
-| `ass_invest_income` | `double` | 可请求字段 | — |
-| `forex_gain` | `double` | 可请求字段 | — |
-| `total_cogs` | `double` | 可请求字段 | — |
-| `oper_cost` | `double` | 可请求字段 | — |
-| `int_exp` | `double` | 可请求字段 | — |
-| `comm_exp` | `double` | 可请求字段 | — |
-| `biz_tax_surchg` | `double` | 可请求字段 | — |
-| `sell_exp` | `double` | 可请求字段 | — |
-| `admin_exp` | `double` | 可请求字段 | — |
-| `fin_exp` | `double` | 可请求字段 | — |
-| `assets_impair_loss` | `double` | 可请求字段 | — |
-| `prem_refund` | `double` | 可请求字段 | — |
-| `compens_payout` | `double` | 可请求字段 | — |
-| `reser_insur_liab` | `double` | 可请求字段 | — |
-| `div_payt` | `double` | 可请求字段 | — |
-| `reins_exp` | `double` | 可请求字段 | — |
-| `oper_exp` | `double` | 可请求字段 | — |
-| `compens_payout_refu` | `double` | 可请求字段 | — |
-| `insur_reser_refu` | `double` | 可请求字段 | — |
-| `reins_cost_refund` | `double` | 可请求字段 | — |
-| `other_bus_cost` | `double` | 可请求字段 | — |
-| `operate_profit` | `double` | 可请求字段 | — |
-| `non_oper_income` | `double` | 可请求字段 | — |
-| `non_oper_exp` | `double` | 可请求字段 | — |
-| `nca_disploss` | `double` | 可请求字段 | — |
-| `total_profit` | `double` | 可请求字段 | — |
-| `income_tax` | `double` | 可请求字段 | — |
-| `n_income` | `double` | 可请求字段 | — |
+| `revenue` | `double` | 可请求字段 | 营业收入。 |
+| `int_income` | `double` | 可请求字段 | 利息收入（银行业务）。 |
+| `prem_earned` | `double` | 可请求字段 | 已赚保费（保险业务）。 |
+| `comm_income` | `double` | 可请求字段 | 手续费及佣金收入。 |
+| `n_commis_income` | `double` | 可请求字段 | 手续费及佣金净收入。 |
+| `n_oth_income` | `double` | 可请求字段 | 其他经营净收益。 |
+| `n_oth_b_income` | `double` | 可请求字段 | 其他业务净收益。 |
+| `prem_income` | `double` | 可请求字段 | 保险业务收入。 |
+| `out_prem` | `double` | 可请求字段 | 分出保费。 |
+| `une_prem_reser` | `double` | 可请求字段 | 未到期责任准备金。 |
+| `reins_income` | `double` | 可请求字段 | 摊回分保收入。 |
+| `n_sec_tb_income` | `double` | 可请求字段 | 代理买卖证券业务净收入。 |
+| `n_sec_uw_income` | `double` | 可请求字段 | 证券承销业务净收入。 |
+| `n_asset_mg_income` | `double` | 可请求字段 | 受托客户资产管理业务净收入。 |
+| `oth_b_income` | `double` | 可请求字段 | 其他业务收入。 |
+| `fv_value_chg_gain` | `double` | 可请求字段 | 公允价值变动收益。 |
+| `invest_income` | `double` | 可请求字段 | 投资收益。 |
+| `ass_invest_income` | `double` | 可请求字段 | 对联营和合营企业的投资收益。 |
+| `forex_gain` | `double` | 可请求字段 | 汇兑收益。 |
+| `total_cogs` | `double` | 可请求字段 | 营业总成本。 |
+| `oper_cost` | `double` | 可请求字段 | 营业成本。 |
+| `int_exp` | `double` | 可请求字段 | 利息支出。 |
+| `comm_exp` | `double` | 可请求字段 | 手续费及佣金支出。 |
+| `biz_tax_surchg` | `double` | 可请求字段 | 营业税金及附加。 |
+| `sell_exp` | `double` | 可请求字段 | 销售费用。 |
+| `admin_exp` | `double` | 可请求字段 | 管理费用。 |
+| `fin_exp` | `double` | 可请求字段 | 财务费用。 |
+| `assets_impair_loss` | `double` | 可请求字段 | 资产减值损失。 |
+| `prem_refund` | `double` | 可请求字段 | 退保金。 |
+| `compens_payout` | `double` | 可请求字段 | 赔付总支出。 |
+| `reser_insur_liab` | `double` | 可请求字段 | 提取保险责任准备金。 |
+| `div_payt` | `double` | 可请求字段 | 保户红利支出。 |
+| `reins_exp` | `double` | 可请求字段 | 分保费用。 |
+| `oper_exp` | `double` | 可请求字段 | 营业支出。 |
+| `compens_payout_refu` | `double` | 可请求字段 | 摊回赔付支出。 |
+| `insur_reser_refu` | `double` | 可请求字段 | 摊回保险责任准备金。 |
+| `reins_cost_refund` | `double` | 可请求字段 | 摊回分保费用。 |
+| `other_bus_cost` | `double` | 可请求字段 | 其他业务成本。 |
+| `operate_profit` | `double` | 可请求字段 | 营业利润。 |
+| `non_oper_income` | `double` | 可请求字段 | 营业外收入。 |
+| `non_oper_exp` | `double` | 可请求字段 | 营业外支出。 |
+| `nca_disploss` | `double` | 可请求字段 | 非流动资产处置损失。 |
+| `total_profit` | `double` | 可请求字段 | 利润总额。 |
+| `income_tax` | `double` | 可请求字段 | 所得税费用。 |
+| `n_income` | `double` | 可请求字段 | 净利润（含少数股东损益）。 |
 | `n_income_attr_p` | `double` | 可请求字段 | 归属于母公司股东的净利润。 |
-| `minority_gain` | `double` | 可请求字段 | — |
-| `oth_compr_income` | `double` | 可请求字段 | — |
-| `t_compr_income` | `double` | 可请求字段 | — |
-| `compr_inc_attr_p` | `double` | 可请求字段 | — |
-| `compr_inc_attr_m_s` | `double` | 可请求字段 | — |
-| `ebit` | `double` | 可请求字段 | — |
-| `ebitda` | `double` | 可请求字段 | — |
-| `insurance_exp` | `double` | 可请求字段 | — |
-| `undist_profit` | `double` | 可请求字段 | — |
-| `distable_profit` | `double` | 可请求字段 | — |
-| `rd_exp` | `double` | 可请求字段 | — |
-| `fin_exp_int_exp` | `double` | 可请求字段 | — |
-| `fin_exp_int_inc` | `double` | 可请求字段 | — |
-| `transfer_surplus_rese` | `double` | 可请求字段 | — |
-| `transfer_housing_imprest` | `double` | 可请求字段 | — |
-| `transfer_oth` | `double` | 可请求字段 | — |
-| `adj_lossgain` | `double` | 可请求字段 | — |
-| `withdra_legal_surplus` | `double` | 可请求字段 | — |
-| `withdra_legal_pubfund` | `double` | 可请求字段 | — |
-| `withdra_biz_devfund` | `double` | 可请求字段 | — |
-| `withdra_rese_fund` | `double` | 可请求字段 | — |
-| `withdra_oth_ersu` | `double` | 可请求字段 | — |
-| `workers_welfare` | `double` | 可请求字段 | — |
-| `distr_profit_shrhder` | `double` | 可请求字段 | — |
-| `prfshare_payable_dvd` | `double` | 可请求字段 | — |
-| `comshare_payable_dvd` | `double` | 可请求字段 | — |
-| `capit_comstock_div` | `double` | 可请求字段 | — |
-| `continued_net_profit` | `double` | 可请求字段 | — |
-| `update_flag` | `string` | 可请求字段 | Tushare 更新或修订标记。 |
+| `minority_gain` | `double` | 可请求字段 | 少数股东损益。 |
+| `oth_compr_income` | `double` | 可请求字段 | 其他综合收益。 |
+| `t_compr_income` | `double` | 可请求字段 | 综合收益总额。 |
+| `compr_inc_attr_p` | `double` | 可请求字段 | 归属于母公司股东的综合收益。 |
+| `compr_inc_attr_m_s` | `double` | 可请求字段 | 归属于少数股东的综合收益。 |
+| `ebit` | `double` | 可请求字段 | 息税前利润。 |
+| `ebitda` | `double` | 可请求字段 | 息税折旧摊销前利润。 |
+| `insurance_exp` | `double` | 可请求字段 | 保险合同费用。 |
+| `undist_profit` | `double` | 可请求字段 | 年初未分配利润。 |
+| `distable_profit` | `double` | 可请求字段 | 可供分配利润。 |
+| `rd_exp` | `double` | 可请求字段 | 研发费用。 |
+| `fin_exp_int_exp` | `double` | 可请求字段 | 财务费用中的利息支出。 |
+| `fin_exp_int_inc` | `double` | 可请求字段 | 财务费用中的利息收入。 |
+| `transfer_surplus_rese` | `double` | 可请求字段 | 盈余公积转入。 |
+| `transfer_housing_imprest` | `double` | 可请求字段 | 住房周转金转入。 |
+| `transfer_oth` | `double` | 可请求字段 | 其他转入。 |
+| `adj_lossgain` | `double` | 可请求字段 | 调整以前年度损益。 |
+| `withdra_legal_surplus` | `double` | 可请求字段 | 提取法定盈余公积。 |
+| `withdra_legal_pubfund` | `double` | 可请求字段 | 提取法定公益金。 |
+| `withdra_biz_devfund` | `double` | 可请求字段 | 提取企业发展基金。 |
+| `withdra_rese_fund` | `double` | 可请求字段 | 提取储备基金。 |
+| `withdra_oth_ersu` | `double` | 可请求字段 | 提取任意盈余公积。 |
+| `workers_welfare` | `double` | 可请求字段 | 职工奖金福利。 |
+| `distr_profit_shrhder` | `double` | 可请求字段 | 可供股东分配的利润。 |
+| `prfshare_payable_dvd` | `double` | 可请求字段 | 应付优先股股利。 |
+| `comshare_payable_dvd` | `double` | 可请求字段 | 应付普通股股利。 |
+| `capit_comstock_div` | `double` | 可请求字段 | 转作股本的普通股股利。 |
+| `continued_net_profit` | `double` | 可请求字段 | 持续经营净利润。 |
+| `update_flag` | `string` | 可请求字段 | 更新或修订标记。 |
 
 ## `balancesheet`：Tushare 资产负债表
 
@@ -280,151 +280,151 @@
 | `report_type` | `string` | 可请求字段 | 报告类型。 |
 | `comp_type` | `string` | 可请求字段 | 公司类型。 |
 | `end_type` | `string` | 可请求字段 | 报告期类型。 |
-| `total_share` | `double` | 可请求字段 | — |
-| `cap_rese` | `double` | 可请求字段 | — |
-| `undistr_porfit` | `double` | 可请求字段 | — |
-| `surplus_rese` | `double` | 可请求字段 | — |
-| `special_rese` | `double` | 可请求字段 | — |
-| `money_cap` | `double` | 可请求字段 | — |
-| `trad_asset` | `double` | 可请求字段 | — |
-| `notes_receiv` | `double` | 可请求字段 | — |
-| `accounts_receiv` | `double` | 可请求字段 | — |
-| `oth_receiv` | `double` | 可请求字段 | — |
-| `prepayment` | `double` | 可请求字段 | — |
-| `div_receiv` | `double` | 可请求字段 | — |
-| `int_receiv` | `double` | 可请求字段 | — |
-| `inventories` | `double` | 可请求字段 | — |
-| `amor_exp` | `double` | 可请求字段 | — |
-| `nca_within_1y` | `double` | 可请求字段 | — |
-| `sett_rsrv` | `double` | 可请求字段 | — |
-| `loanto_oth_bank_fi` | `double` | 可请求字段 | — |
-| `premium_receiv` | `double` | 可请求字段 | — |
-| `reinsur_receiv` | `double` | 可请求字段 | — |
-| `reinsur_res_receiv` | `double` | 可请求字段 | — |
-| `pur_resale_fa` | `double` | 可请求字段 | — |
-| `oth_cur_assets` | `double` | 可请求字段 | — |
-| `total_cur_assets` | `double` | 可请求字段 | — |
-| `fa_avail_for_sale` | `double` | 可请求字段 | — |
-| `htm_invest` | `double` | 可请求字段 | — |
-| `lt_eqt_invest` | `double` | 可请求字段 | — |
-| `invest_real_estate` | `double` | 可请求字段 | — |
-| `time_deposits` | `double` | 可请求字段 | — |
-| `oth_assets` | `double` | 可请求字段 | — |
-| `lt_rec` | `double` | 可请求字段 | — |
-| `fix_assets` | `double` | 可请求字段 | — |
-| `cip` | `double` | 可请求字段 | — |
-| `const_materials` | `double` | 可请求字段 | — |
-| `fixed_assets_disp` | `double` | 可请求字段 | — |
-| `produc_bio_assets` | `double` | 可请求字段 | — |
-| `oil_and_gas_assets` | `double` | 可请求字段 | — |
-| `intan_assets` | `double` | 可请求字段 | — |
-| `r_and_d` | `double` | 可请求字段 | — |
-| `goodwill` | `double` | 可请求字段 | — |
-| `lt_amor_exp` | `double` | 可请求字段 | — |
-| `defer_tax_assets` | `double` | 可请求字段 | — |
-| `decr_in_disbur` | `double` | 可请求字段 | — |
-| `oth_nca` | `double` | 可请求字段 | — |
-| `total_nca` | `double` | 可请求字段 | — |
-| `cash_reser_cb` | `double` | 可请求字段 | — |
-| `depos_in_oth_bfi` | `double` | 可请求字段 | — |
-| `prec_metals` | `double` | 可请求字段 | — |
-| `deriv_assets` | `double` | 可请求字段 | — |
-| `rr_reins_une_prem` | `double` | 可请求字段 | — |
-| `rr_reins_outstd_cla` | `double` | 可请求字段 | — |
-| `rr_reins_lins_liab` | `double` | 可请求字段 | — |
-| `rr_reins_lthins_liab` | `double` | 可请求字段 | — |
-| `refund_depos` | `double` | 可请求字段 | — |
-| `ph_pledge_loans` | `double` | 可请求字段 | — |
-| `refund_cap_depos` | `double` | 可请求字段 | — |
-| `indep_acct_assets` | `double` | 可请求字段 | — |
-| `client_depos` | `double` | 可请求字段 | — |
-| `client_prov` | `double` | 可请求字段 | — |
-| `transac_seat_fee` | `double` | 可请求字段 | — |
-| `invest_as_receiv` | `double` | 可请求字段 | — |
+| `total_share` | `double` | 可请求字段 | 股份总数。 |
+| `cap_rese` | `double` | 可请求字段 | 资本公积金。 |
+| `undistr_porfit` | `double` | 可请求字段 | 未分配利润。 |
+| `surplus_rese` | `double` | 可请求字段 | 盈余公积金。 |
+| `special_rese` | `double` | 可请求字段 | 专项储备。 |
+| `money_cap` | `double` | 可请求字段 | 货币资金。 |
+| `trad_asset` | `double` | 可请求字段 | 交易性金融资产。 |
+| `notes_receiv` | `double` | 可请求字段 | 应收票据。 |
+| `accounts_receiv` | `double` | 可请求字段 | 应收账款。 |
+| `oth_receiv` | `double` | 可请求字段 | 其他应收款。 |
+| `prepayment` | `double` | 可请求字段 | 预付款项。 |
+| `div_receiv` | `double` | 可请求字段 | 应收股利。 |
+| `int_receiv` | `double` | 可请求字段 | 应收利息。 |
+| `inventories` | `double` | 可请求字段 | 存货。 |
+| `amor_exp` | `double` | 可请求字段 | 待摊费用。 |
+| `nca_within_1y` | `double` | 可请求字段 | 一年内到期的非流动资产。 |
+| `sett_rsrv` | `double` | 可请求字段 | 结算备付金。 |
+| `loanto_oth_bank_fi` | `double` | 可请求字段 | 拆出资金。 |
+| `premium_receiv` | `double` | 可请求字段 | 应收保费。 |
+| `reinsur_receiv` | `double` | 可请求字段 | 应收分保账款。 |
+| `reinsur_res_receiv` | `double` | 可请求字段 | 应收分保合同准备金。 |
+| `pur_resale_fa` | `double` | 可请求字段 | 买入返售金融资产。 |
+| `oth_cur_assets` | `double` | 可请求字段 | 其他流动资产。 |
+| `total_cur_assets` | `double` | 可请求字段 | 流动资产合计。 |
+| `fa_avail_for_sale` | `double` | 可请求字段 | 可供出售金融资产。 |
+| `htm_invest` | `double` | 可请求字段 | 持有至到期投资。 |
+| `lt_eqt_invest` | `double` | 可请求字段 | 长期股权投资。 |
+| `invest_real_estate` | `double` | 可请求字段 | 投资性房地产。 |
+| `time_deposits` | `double` | 可请求字段 | 定期存款。 |
+| `oth_assets` | `double` | 可请求字段 | 其他资产。 |
+| `lt_rec` | `double` | 可请求字段 | 长期应收款。 |
+| `fix_assets` | `double` | 可请求字段 | 固定资产。 |
+| `cip` | `double` | 可请求字段 | 在建工程。 |
+| `const_materials` | `double` | 可请求字段 | 工程物资。 |
+| `fixed_assets_disp` | `double` | 可请求字段 | 固定资产清理。 |
+| `produc_bio_assets` | `double` | 可请求字段 | 生产性生物资产。 |
+| `oil_and_gas_assets` | `double` | 可请求字段 | 油气资产。 |
+| `intan_assets` | `double` | 可请求字段 | 无形资产。 |
+| `r_and_d` | `double` | 可请求字段 | 研发支出。 |
+| `goodwill` | `double` | 可请求字段 | 商誉。 |
+| `lt_amor_exp` | `double` | 可请求字段 | 长期待摊费用。 |
+| `defer_tax_assets` | `double` | 可请求字段 | 递延所得税资产。 |
+| `decr_in_disbur` | `double` | 可请求字段 | 发放贷款及垫款。 |
+| `oth_nca` | `double` | 可请求字段 | 其他非流动资产。 |
+| `total_nca` | `double` | 可请求字段 | 非流动资产合计。 |
+| `cash_reser_cb` | `double` | 可请求字段 | 现金及存放中央银行款项。 |
+| `depos_in_oth_bfi` | `double` | 可请求字段 | 存放同业及其他金融机构款项。 |
+| `prec_metals` | `double` | 可请求字段 | 贵金属。 |
+| `deriv_assets` | `double` | 可请求字段 | 衍生金融资产。 |
+| `rr_reins_une_prem` | `double` | 可请求字段 | 应收分保未到期责任准备金。 |
+| `rr_reins_outstd_cla` | `double` | 可请求字段 | 应收分保未决赔款准备金。 |
+| `rr_reins_lins_liab` | `double` | 可请求字段 | 应收分保寿险责任准备金。 |
+| `rr_reins_lthins_liab` | `double` | 可请求字段 | 应收分保长期健康险责任准备金。 |
+| `refund_depos` | `double` | 可请求字段 | 存出保证金。 |
+| `ph_pledge_loans` | `double` | 可请求字段 | 保户质押贷款。 |
+| `refund_cap_depos` | `double` | 可请求字段 | 存出资本保证金。 |
+| `indep_acct_assets` | `double` | 可请求字段 | 独立账户资产。 |
+| `client_depos` | `double` | 可请求字段 | 其中：客户资金。 |
+| `client_prov` | `double` | 可请求字段 | 其中：客户备付金。 |
+| `transac_seat_fee` | `double` | 可请求字段 | 交易席位费。 |
+| `invest_as_receiv` | `double` | 可请求字段 | 应收款项类投资。 |
 | `total_assets` | `double` | 可请求字段 | 资产总计。 |
-| `lt_borr` | `double` | 可请求字段 | — |
-| `st_borr` | `double` | 可请求字段 | — |
-| `cb_borr` | `double` | 可请求字段 | — |
-| `depos_ib_deposits` | `double` | 可请求字段 | — |
-| `loan_oth_bank` | `double` | 可请求字段 | — |
-| `trading_fl` | `double` | 可请求字段 | — |
-| `notes_payable` | `double` | 可请求字段 | — |
-| `acct_payable` | `double` | 可请求字段 | — |
-| `adv_receipts` | `double` | 可请求字段 | — |
-| `sold_for_repur_fa` | `double` | 可请求字段 | — |
-| `comm_payable` | `double` | 可请求字段 | — |
-| `payroll_payable` | `double` | 可请求字段 | — |
-| `taxes_payable` | `double` | 可请求字段 | — |
-| `int_payable` | `double` | 可请求字段 | — |
-| `div_payable` | `double` | 可请求字段 | — |
-| `oth_payable` | `double` | 可请求字段 | — |
-| `acc_exp` | `double` | 可请求字段 | — |
-| `deferred_inc` | `double` | 可请求字段 | — |
-| `st_bonds_payable` | `double` | 可请求字段 | — |
-| `payable_to_reinsurer` | `double` | 可请求字段 | — |
-| `rsrv_insur_cont` | `double` | 可请求字段 | — |
-| `acting_trading_sec` | `double` | 可请求字段 | — |
-| `acting_uw_sec` | `double` | 可请求字段 | — |
-| `non_cur_liab_due_1y` | `double` | 可请求字段 | — |
-| `oth_cur_liab` | `double` | 可请求字段 | — |
-| `total_cur_liab` | `double` | 可请求字段 | — |
-| `bond_payable` | `double` | 可请求字段 | — |
-| `lt_payable` | `double` | 可请求字段 | — |
-| `specific_payables` | `double` | 可请求字段 | — |
-| `estimated_liab` | `double` | 可请求字段 | — |
-| `defer_tax_liab` | `double` | 可请求字段 | — |
-| `defer_inc_non_cur_liab` | `double` | 可请求字段 | — |
-| `oth_ncl` | `double` | 可请求字段 | — |
-| `total_ncl` | `double` | 可请求字段 | — |
-| `depos_oth_bfi` | `double` | 可请求字段 | — |
-| `deriv_liab` | `double` | 可请求字段 | — |
-| `depos` | `double` | 可请求字段 | — |
-| `agency_bus_liab` | `double` | 可请求字段 | — |
-| `oth_liab` | `double` | 可请求字段 | — |
-| `prem_receiv_adva` | `double` | 可请求字段 | — |
-| `depos_received` | `double` | 可请求字段 | — |
-| `ph_invest` | `double` | 可请求字段 | — |
-| `reser_une_prem` | `double` | 可请求字段 | — |
-| `reser_outstd_claims` | `double` | 可请求字段 | — |
-| `reser_lins_liab` | `double` | 可请求字段 | — |
-| `reser_lthins_liab` | `double` | 可请求字段 | — |
-| `indept_acc_liab` | `double` | 可请求字段 | — |
-| `pledge_borr` | `double` | 可请求字段 | — |
-| `indem_payable` | `double` | 可请求字段 | — |
-| `policy_div_payable` | `double` | 可请求字段 | — |
+| `lt_borr` | `double` | 可请求字段 | 长期借款。 |
+| `st_borr` | `double` | 可请求字段 | 短期借款。 |
+| `cb_borr` | `double` | 可请求字段 | 向中央银行借款。 |
+| `depos_ib_deposits` | `double` | 可请求字段 | 吸收存款及同业存放。 |
+| `loan_oth_bank` | `double` | 可请求字段 | 拆入资金。 |
+| `trading_fl` | `double` | 可请求字段 | 交易性金融负债。 |
+| `notes_payable` | `double` | 可请求字段 | 应付票据。 |
+| `acct_payable` | `double` | 可请求字段 | 应付账款。 |
+| `adv_receipts` | `double` | 可请求字段 | 预收款项。 |
+| `sold_for_repur_fa` | `double` | 可请求字段 | 卖出回购金融资产款。 |
+| `comm_payable` | `double` | 可请求字段 | 应付手续费及佣金。 |
+| `payroll_payable` | `double` | 可请求字段 | 应付职工薪酬。 |
+| `taxes_payable` | `double` | 可请求字段 | 应交税费。 |
+| `int_payable` | `double` | 可请求字段 | 应付利息。 |
+| `div_payable` | `double` | 可请求字段 | 应付股利。 |
+| `oth_payable` | `double` | 可请求字段 | 其他应付款。 |
+| `acc_exp` | `double` | 可请求字段 | 预提费用。 |
+| `deferred_inc` | `double` | 可请求字段 | 递延收益。 |
+| `st_bonds_payable` | `double` | 可请求字段 | 应付短期债券。 |
+| `payable_to_reinsurer` | `double` | 可请求字段 | 应付分保账款。 |
+| `rsrv_insur_cont` | `double` | 可请求字段 | 保险合同准备金。 |
+| `acting_trading_sec` | `double` | 可请求字段 | 代理买卖证券款。 |
+| `acting_uw_sec` | `double` | 可请求字段 | 代理承销证券款。 |
+| `non_cur_liab_due_1y` | `double` | 可请求字段 | 一年内到期的非流动负债。 |
+| `oth_cur_liab` | `double` | 可请求字段 | 其他流动负债。 |
+| `total_cur_liab` | `double` | 可请求字段 | 流动负债合计。 |
+| `bond_payable` | `double` | 可请求字段 | 应付债券。 |
+| `lt_payable` | `double` | 可请求字段 | 长期应付款。 |
+| `specific_payables` | `double` | 可请求字段 | 专项应付款。 |
+| `estimated_liab` | `double` | 可请求字段 | 预计负债。 |
+| `defer_tax_liab` | `double` | 可请求字段 | 递延所得税负债。 |
+| `defer_inc_non_cur_liab` | `double` | 可请求字段 | 递延收益——非流动负债。 |
+| `oth_ncl` | `double` | 可请求字段 | 其他非流动负债。 |
+| `total_ncl` | `double` | 可请求字段 | 非流动负债合计。 |
+| `depos_oth_bfi` | `double` | 可请求字段 | 同业及其他金融机构存放款项。 |
+| `deriv_liab` | `double` | 可请求字段 | 衍生金融负债。 |
+| `depos` | `double` | 可请求字段 | 吸收存款。 |
+| `agency_bus_liab` | `double` | 可请求字段 | 代理业务负债。 |
+| `oth_liab` | `double` | 可请求字段 | 其他负债。 |
+| `prem_receiv_adva` | `double` | 可请求字段 | 预收保费。 |
+| `depos_received` | `double` | 可请求字段 | 存入保证金。 |
+| `ph_invest` | `double` | 可请求字段 | 保户投资款。 |
+| `reser_une_prem` | `double` | 可请求字段 | 未到期责任准备金。 |
+| `reser_outstd_claims` | `double` | 可请求字段 | 保险责任准备金——未决赔款准备金。 |
+| `reser_lins_liab` | `double` | 可请求字段 | 寿险责任准备金。 |
+| `reser_lthins_liab` | `double` | 可请求字段 | 长期健康险责任准备金。 |
+| `indept_acc_liab` | `double` | 可请求字段 | 独立账户负债。 |
+| `pledge_borr` | `double` | 可请求字段 | 其中：质押借款。 |
+| `indem_payable` | `double` | 可请求字段 | 应付赔付款。 |
+| `policy_div_payable` | `double` | 可请求字段 | 应付保单红利。 |
 | `total_liab` | `double` | 可请求字段 | 负债合计。 |
-| `treasury_share` | `double` | 可请求字段 | — |
-| `ordin_risk_reser` | `double` | 可请求字段 | — |
-| `forex_differ` | `double` | 可请求字段 | — |
-| `invest_loss_unconf` | `double` | 可请求字段 | — |
-| `minority_int` | `double` | 可请求字段 | — |
-| `total_hldr_eqy_exc_min_int` | `double` | 可请求字段 | — |
-| `total_hldr_eqy_inc_min_int` | `double` | 可请求字段 | — |
-| `total_liab_hldr_eqy` | `double` | 可请求字段 | — |
-| `lt_payroll_payable` | `double` | 可请求字段 | — |
-| `oth_comp_income` | `double` | 可请求字段 | — |
-| `oth_eqt_tools` | `double` | 可请求字段 | — |
-| `oth_eqt_tools_p_shr` | `double` | 可请求字段 | — |
-| `lending_funds` | `double` | 可请求字段 | — |
-| `acc_receivable` | `double` | 可请求字段 | — |
-| `st_fin_payable` | `double` | 可请求字段 | — |
-| `payables` | `double` | 可请求字段 | — |
-| `hfs_assets` | `double` | 可请求字段 | — |
-| `hfs_sales` | `double` | 可请求字段 | — |
-| `cost_fin_assets` | `double` | 可请求字段 | — |
-| `fair_value_fin_assets` | `double` | 可请求字段 | — |
-| `cip_total` | `double` | 可请求字段 | — |
-| `oth_pay_total` | `double` | 可请求字段 | — |
-| `long_pay_total` | `double` | 可请求字段 | — |
-| `debt_invest` | `double` | 可请求字段 | — |
-| `oth_debt_invest` | `double` | 可请求字段 | — |
-| `contract_assets` | `double` | 可请求字段 | — |
-| `contract_liab` | `double` | 可请求字段 | — |
-| `accounts_receiv_bill` | `double` | 可请求字段 | — |
-| `accounts_pay` | `double` | 可请求字段 | — |
-| `oth_rcv_total` | `double` | 可请求字段 | — |
-| `fix_assets_total` | `double` | 可请求字段 | — |
-| `update_flag` | `string` | 可请求字段 | Tushare 更新或修订标记。 |
+| `treasury_share` | `double` | 可请求字段 | 减：库存股。 |
+| `ordin_risk_reser` | `double` | 可请求字段 | 一般风险准备。 |
+| `forex_differ` | `double` | 可请求字段 | 外币报表折算差额。 |
+| `invest_loss_unconf` | `double` | 可请求字段 | 未确认的投资损失。 |
+| `minority_int` | `double` | 可请求字段 | 少数股东权益。 |
+| `total_hldr_eqy_exc_min_int` | `double` | 可请求字段 | 归属于母公司股东权益合计。 |
+| `total_hldr_eqy_inc_min_int` | `double` | 可请求字段 | 所有者权益合计（含少数股东权益）。 |
+| `total_liab_hldr_eqy` | `double` | 可请求字段 | 负债及所有者权益总计。 |
+| `lt_payroll_payable` | `double` | 可请求字段 | 长期应付职工薪酬。 |
+| `oth_comp_income` | `double` | 可请求字段 | 其他综合收益。 |
+| `oth_eqt_tools` | `double` | 可请求字段 | 其他权益工具。 |
+| `oth_eqt_tools_p_shr` | `double` | 可请求字段 | 其中：优先股。 |
+| `lending_funds` | `double` | 可请求字段 | 发放贷款及垫款。 |
+| `acc_receivable` | `double` | 可请求字段 | 应收款项类资产。 |
+| `st_fin_payable` | `double` | 可请求字段 | 短期应付债券。 |
+| `payables` | `double` | 可请求字段 | 应付款项。 |
+| `hfs_assets` | `double` | 可请求字段 | 持有待售资产。 |
+| `hfs_sales` | `double` | 可请求字段 | 持有待售负债。 |
+| `cost_fin_assets` | `double` | 可请求字段 | 以公允价值计量且其变动计入其他综合收益的金融资产（成本）。 |
+| `fair_value_fin_assets` | `double` | 可请求字段 | 以公允价值计量且其变动计入其他综合收益的金融资产（公允价值）。 |
+| `cip_total` | `double` | 可请求字段 | 在建工程（合计）。 |
+| `oth_pay_total` | `double` | 可请求字段 | 其他应付款合计。 |
+| `long_pay_total` | `double` | 可请求字段 | 长期应付款合计。 |
+| `debt_invest` | `double` | 可请求字段 | 债权投资。 |
+| `oth_debt_invest` | `double` | 可请求字段 | 其他债权投资。 |
+| `contract_assets` | `double` | 可请求字段 | 合同资产。 |
+| `contract_liab` | `double` | 可请求字段 | 合同负债。 |
+| `accounts_receiv_bill` | `double` | 可请求字段 | 应收款项融资（含应收票据）。 |
+| `accounts_pay` | `double` | 可请求字段 | 应付及预收款项。 |
+| `oth_rcv_total` | `double` | 可请求字段 | 其他应收款合计。 |
+| `fix_assets_total` | `double` | 可请求字段 | 固定资产合计。 |
+| `update_flag` | `string` | 可请求字段 | 更新或修订标记。 |
 
 ## `cashflow`：Tushare 现金流量表
 
@@ -442,96 +442,96 @@
 | `comp_type` | `string` | 可请求字段 | 公司类型。 |
 | `report_type` | `string` | 可请求字段 | 报告类型。 |
 | `end_type` | `string` | 可请求字段 | 报告期类型。 |
-| `net_profit` | `double` | 可请求字段 | — |
-| `finan_exp` | `double` | 可请求字段 | — |
-| `c_fr_sale_sg` | `double` | 可请求字段 | — |
-| `recp_tax_rends` | `double` | 可请求字段 | — |
-| `n_depos_incr_fi` | `double` | 可请求字段 | — |
-| `n_incr_loans_cb` | `double` | 可请求字段 | — |
-| `n_inc_borr_oth_fi` | `double` | 可请求字段 | — |
-| `prem_fr_orig_contr` | `double` | 可请求字段 | — |
-| `n_incr_insured_dep` | `double` | 可请求字段 | — |
-| `n_reinsur_prem` | `double` | 可请求字段 | — |
-| `n_incr_disp_tfa` | `double` | 可请求字段 | — |
-| `ifc_cash_incr` | `double` | 可请求字段 | — |
-| `n_incr_disp_faas` | `double` | 可请求字段 | — |
-| `n_incr_loans_oth_bank` | `double` | 可请求字段 | — |
-| `n_cap_incr_repur` | `double` | 可请求字段 | — |
-| `c_fr_oth_operate_a` | `double` | 可请求字段 | — |
-| `c_inf_fr_operate_a` | `double` | 可请求字段 | — |
-| `c_paid_goods_s` | `double` | 可请求字段 | — |
-| `c_paid_to_for_empl` | `double` | 可请求字段 | — |
-| `c_paid_for_taxes` | `double` | 可请求字段 | — |
-| `n_incr_clt_loan_adv` | `double` | 可请求字段 | — |
-| `n_incr_dep_cbob` | `double` | 可请求字段 | — |
-| `c_pay_claims_orig_inco` | `double` | 可请求字段 | — |
-| `pay_handling_chrg` | `double` | 可请求字段 | — |
-| `pay_comm_insur_plcy` | `double` | 可请求字段 | — |
-| `oth_cash_pay_oper_act` | `double` | 可请求字段 | — |
-| `st_cash_out_act` | `double` | 可请求字段 | — |
+| `net_profit` | `double` | 可请求字段 | 净利润。 |
+| `finan_exp` | `double` | 可请求字段 | 财务费用（付现部分调整项）。 |
+| `c_fr_sale_sg` | `double` | 可请求字段 | 销售商品、提供劳务收到的现金。 |
+| `recp_tax_rends` | `double` | 可请求字段 | 收到的税费返还。 |
+| `n_depos_incr_fi` | `double` | 可请求字段 | 客户存款和同业存放款项净增加额。 |
+| `n_incr_loans_cb` | `double` | 可请求字段 | 向中央银行借款净增加额。 |
+| `n_inc_borr_oth_fi` | `double` | 可请求字段 | 向其他金融机构拆入资金净增加额。 |
+| `prem_fr_orig_contr` | `double` | 可请求字段 | 收到原保险合同保费取得的现金。 |
+| `n_incr_insured_dep` | `double` | 可请求字段 | 保户储金净增加额。 |
+| `n_reinsur_prem` | `double` | 可请求字段 | 收到再保业务现金净额。 |
+| `n_incr_disp_tfa` | `double` | 可请求字段 | 处置交易性金融资产净增加额。 |
+| `ifc_cash_incr` | `double` | 可请求字段 | 收取利息、手续费及佣金的现金。 |
+| `n_incr_disp_faas` | `double` | 可请求字段 | 处置可供出售金融资产净增加额。 |
+| `n_incr_loans_oth_bank` | `double` | 可请求字段 | 拆入资金及卖出回购金融资产款净增加额。 |
+| `n_cap_incr_repur` | `double` | 可请求字段 | 回购业务资金净增加额。 |
+| `c_fr_oth_operate_a` | `double` | 可请求字段 | 收到其他与经营活动有关的现金。 |
+| `c_inf_fr_operate_a` | `double` | 可请求字段 | 经营活动现金流入小计。 |
+| `c_paid_goods_s` | `double` | 可请求字段 | 购买商品、接受劳务支付的现金。 |
+| `c_paid_to_for_empl` | `double` | 可请求字段 | 支付给职工以及为职工支付的现金。 |
+| `c_paid_for_taxes` | `double` | 可请求字段 | 支付的各项税费。 |
+| `n_incr_clt_loan_adv` | `double` | 可请求字段 | 客户贷款及垫款净增加额。 |
+| `n_incr_dep_cbob` | `double` | 可请求字段 | 存放中央银行和同业款项净增加额。 |
+| `c_pay_claims_orig_inco` | `double` | 可请求字段 | 支付原保险合同赔付款项的现金。 |
+| `pay_handling_chrg` | `double` | 可请求字段 | 支付手续费及佣金的现金。 |
+| `pay_comm_insur_plcy` | `double` | 可请求字段 | 支付保单红利的现金。 |
+| `oth_cash_pay_oper_act` | `double` | 可请求字段 | 支付其他与经营活动有关的现金。 |
+| `st_cash_out_act` | `double` | 可请求字段 | 经营活动现金流出小计。 |
 | `n_cashflow_act` | `double` | 可请求字段 | 经营活动产生的现金流量净额。 |
-| `oth_recp_ral_inv_act` | `double` | 可请求字段 | — |
-| `c_disp_withdrwl_invest` | `double` | 可请求字段 | — |
-| `c_recp_return_invest` | `double` | 可请求字段 | — |
-| `n_recp_disp_fiolta` | `double` | 可请求字段 | — |
-| `n_recp_disp_sobu` | `double` | 可请求字段 | — |
-| `stot_inflows_inv_act` | `double` | 可请求字段 | — |
-| `c_pay_acq_const_fiolta` | `double` | 可请求字段 | — |
-| `c_paid_invest` | `double` | 可请求字段 | — |
-| `n_disp_subs_oth_biz` | `double` | 可请求字段 | — |
-| `oth_pay_ral_inv_act` | `double` | 可请求字段 | — |
-| `n_incr_pledge_loan` | `double` | 可请求字段 | — |
-| `stot_out_inv_act` | `double` | 可请求字段 | — |
-| `n_cashflow_inv_act` | `double` | 可请求字段 | — |
-| `c_recp_borrow` | `double` | 可请求字段 | — |
-| `proc_issue_bonds` | `double` | 可请求字段 | — |
-| `oth_cash_recp_ral_fnc_act` | `double` | 可请求字段 | — |
-| `stot_cash_in_fnc_act` | `double` | 可请求字段 | — |
+| `oth_recp_ral_inv_act` | `double` | 可请求字段 | 收到其他与投资活动有关的现金。 |
+| `c_disp_withdrwl_invest` | `double` | 可请求字段 | 收回投资收到的现金。 |
+| `c_recp_return_invest` | `double` | 可请求字段 | 取得投资收益收到的现金。 |
+| `n_recp_disp_fiolta` | `double` | 可请求字段 | 处置固定资产、无形资产和其他长期资产收回的现金净额。 |
+| `n_recp_disp_sobu` | `double` | 可请求字段 | 处置子公司及其他营业单位收到的现金净额。 |
+| `stot_inflows_inv_act` | `double` | 可请求字段 | 投资活动现金流入小计。 |
+| `c_pay_acq_const_fiolta` | `double` | 可请求字段 | 购建固定资产、无形资产和其他长期资产支付的现金。 |
+| `c_paid_invest` | `double` | 可请求字段 | 投资支付的现金。 |
+| `n_disp_subs_oth_biz` | `double` | 可请求字段 | 取得子公司及其他营业单位支付的现金净额。 |
+| `oth_pay_ral_inv_act` | `double` | 可请求字段 | 支付其他与投资活动有关的现金。 |
+| `n_incr_pledge_loan` | `double` | 可请求字段 | 质押贷款净增加额。 |
+| `stot_out_inv_act` | `double` | 可请求字段 | 投资活动现金流出小计。 |
+| `n_cashflow_inv_act` | `double` | 可请求字段 | 投资活动产生的现金流量净额。 |
+| `c_recp_borrow` | `double` | 可请求字段 | 吸收投资收到的现金。 |
+| `proc_issue_bonds` | `double` | 可请求字段 | 取得借款收到的现金。 |
+| `oth_cash_recp_ral_fnc_act` | `double` | 可请求字段 | 收到其他与筹资活动有关的现金。 |
+| `stot_cash_in_fnc_act` | `double` | 可请求字段 | 筹资活动现金流入小计。 |
 | `free_cashflow` | `double` | 可请求字段 | 企业自由现金流量。 |
-| `c_prepay_amt_borr` | `double` | 可请求字段 | — |
-| `c_pay_dist_dpcp_int_exp` | `double` | 可请求字段 | — |
-| `incl_dvd_profit_paid_sc_ms` | `double` | 可请求字段 | — |
-| `oth_cashpay_ral_fnc_act` | `double` | 可请求字段 | — |
-| `stot_cashout_fnc_act` | `double` | 可请求字段 | — |
-| `n_cash_flows_fnc_act` | `double` | 可请求字段 | — |
-| `eff_fx_flu_cash` | `double` | 可请求字段 | — |
-| `n_incr_cash_cash_equ` | `double` | 可请求字段 | — |
-| `c_cash_equ_beg_period` | `double` | 可请求字段 | — |
-| `c_cash_equ_end_period` | `double` | 可请求字段 | — |
-| `c_recp_cap_contrib` | `double` | 可请求字段 | — |
-| `incl_cash_rec_saims` | `double` | 可请求字段 | — |
-| `uncon_invest_loss` | `double` | 可请求字段 | — |
-| `prov_depr_assets` | `double` | 可请求字段 | — |
-| `depr_fa_coga_dpba` | `double` | 可请求字段 | — |
-| `amort_intang_assets` | `double` | 可请求字段 | — |
-| `lt_amort_deferred_exp` | `double` | 可请求字段 | — |
-| `decr_deferred_exp` | `double` | 可请求字段 | — |
-| `incr_acc_exp` | `double` | 可请求字段 | — |
-| `loss_disp_fiolta` | `double` | 可请求字段 | — |
-| `loss_scr_fa` | `double` | 可请求字段 | — |
-| `loss_fv_chg` | `double` | 可请求字段 | — |
-| `invest_loss` | `double` | 可请求字段 | — |
-| `decr_def_inc_tax_assets` | `double` | 可请求字段 | — |
-| `incr_def_inc_tax_liab` | `double` | 可请求字段 | — |
-| `decr_inventories` | `double` | 可请求字段 | — |
-| `decr_oper_payable` | `double` | 可请求字段 | — |
-| `incr_oper_payable` | `double` | 可请求字段 | — |
-| `others` | `double` | 可请求字段 | — |
-| `im_net_cashflow_oper_act` | `double` | 可请求字段 | — |
-| `conv_debt_into_cap` | `double` | 可请求字段 | — |
-| `conv_copbonds_due_within_1y` | `double` | 可请求字段 | — |
-| `fa_fnc_leases` | `double` | 可请求字段 | — |
-| `im_n_incr_cash_equ` | `double` | 可请求字段 | — |
-| `net_dism_capital_add` | `double` | 可请求字段 | — |
-| `net_cash_rece_sec` | `double` | 可请求字段 | — |
-| `credit_impa_loss` | `double` | 可请求字段 | — |
-| `use_right_asset_dep` | `double` | 可请求字段 | — |
-| `oth_loss_asset` | `double` | 可请求字段 | — |
-| `end_bal_cash` | `double` | 可请求字段 | — |
-| `beg_bal_cash` | `double` | 可请求字段 | — |
-| `end_bal_cash_equ` | `double` | 可请求字段 | — |
-| `beg_bal_cash_equ` | `double` | 可请求字段 | — |
-| `update_flag` | `string` | 可请求字段 | Tushare 更新或修订标记。 |
+| `c_prepay_amt_borr` | `double` | 可请求字段 | 发行债券收到的现金。 |
+| `c_pay_dist_dpcp_int_exp` | `double` | 可请求字段 | 分配股利、利润或偿付利息支付的现金。 |
+| `incl_dvd_profit_paid_sc_ms` | `double` | 可请求字段 | 其中：子公司支付给少数股东的股利、利润。 |
+| `oth_cashpay_ral_fnc_act` | `double` | 可请求字段 | 支付其他与筹资活动有关的现金。 |
+| `stot_cashout_fnc_act` | `double` | 可请求字段 | 筹资活动现金流出小计。 |
+| `n_cash_flows_fnc_act` | `double` | 可请求字段 | 筹资活动产生的现金流量净额。 |
+| `eff_fx_flu_cash` | `double` | 可请求字段 | 汇率变动对现金的影响。 |
+| `n_incr_cash_cash_equ` | `double` | 可请求字段 | 现金及现金等价物净增加额。 |
+| `c_cash_equ_beg_period` | `double` | 可请求字段 | 期初现金及现金等价物余额。 |
+| `c_cash_equ_end_period` | `double` | 可请求字段 | 期末现金及现金等价物余额。 |
+| `c_recp_cap_contrib` | `double` | 可请求字段 | 其中：吸收投资收到的现金（资本投入）。 |
+| `incl_cash_rec_saims` | `double` | 可请求字段 | 其中：子公司吸收少数股东投资收到的现金。 |
+| `uncon_invest_loss` | `double` | 可请求字段 | 未确认的投资损失（间接法调整项）。 |
+| `prov_depr_assets` | `double` | 可请求字段 | 资产减值准备（间接法）。 |
+| `depr_fa_coga_dpba` | `double` | 可请求字段 | 固定资产折旧、油气资产折耗、生产性生物资产折旧。 |
+| `amort_intang_assets` | `double` | 可请求字段 | 无形资产摊销。 |
+| `lt_amort_deferred_exp` | `double` | 可请求字段 | 长期待摊费用摊销。 |
+| `decr_deferred_exp` | `double` | 可请求字段 | 待摊费用的减少（间接法）。 |
+| `incr_acc_exp` | `double` | 可请求字段 | 预提费用的增加（间接法）。 |
+| `loss_disp_fiolta` | `double` | 可请求字段 | 处置固定资产、无形资产和其他长期资产的损失。 |
+| `loss_scr_fa` | `double` | 可请求字段 | 固定资产报废损失。 |
+| `loss_fv_chg` | `double` | 可请求字段 | 公允价值变动损失。 |
+| `invest_loss` | `double` | 可请求字段 | 投资损失（间接法）。 |
+| `decr_def_inc_tax_assets` | `double` | 可请求字段 | 递延所得税资产减少。 |
+| `incr_def_inc_tax_liab` | `double` | 可请求字段 | 递延所得税负债增加。 |
+| `decr_inventories` | `double` | 可请求字段 | 存货的减少（间接法）。 |
+| `decr_oper_payable` | `double` | 可请求字段 | 经营性应收项目的减少。 |
+| `incr_oper_payable` | `double` | 可请求字段 | 经营性应付项目的增加。 |
+| `others` | `double` | 可请求字段 | 其他（间接法）。 |
+| `im_net_cashflow_oper_act` | `double` | 可请求字段 | 经营活动产生的现金流量净额（间接法）。 |
+| `conv_debt_into_cap` | `double` | 可请求字段 | 债务转为资本。 |
+| `conv_copbonds_due_within_1y` | `double` | 可请求字段 | 一年内到期的可转换公司债券。 |
+| `fa_fnc_leases` | `double` | 可请求字段 | 融资租入固定资产。 |
+| `im_n_incr_cash_equ` | `double` | 可请求字段 | 现金及现金等价物净增加额（间接法）。 |
+| `net_dism_capital_add` | `double` | 可请求字段 | 筹资净额相关调整：减少注册资本。 |
+| `net_cash_rece_sec` | `double` | 可请求字段 | 收到与筹资活动相关的现金净额。 |
+| `credit_impa_loss` | `double` | 可请求字段 | 信用减值损失。 |
+| `use_right_asset_dep` | `double` | 可请求字段 | 使用权资产折旧。 |
+| `oth_loss_asset` | `double` | 可请求字段 | 其他资产减值损失。 |
+| `end_bal_cash` | `double` | 可请求字段 | 期末现金余额。 |
+| `beg_bal_cash` | `double` | 可请求字段 | 期初现金余额。 |
+| `end_bal_cash_equ` | `double` | 可请求字段 | 期末现金等价物余额。 |
+| `beg_bal_cash_equ` | `double` | 可请求字段 | 期初现金等价物余额。 |
+| `update_flag` | `string` | 可请求字段 | 更新或修订标记。 |
 
 ## `fina_indicator`：Tushare 财务指标
 
@@ -545,170 +545,170 @@
 | `ts_code` | `string` | 自动键列 | 带交易所后缀的证券代码。 |
 | `ann_date` | `date32[day]` | 可请求字段 | 公告日期，也是 PIT 的 disclosure date。 |
 | `end_date` | `date32[day]` | 自动键列 | 财务报告期。 |
-| `eps` | `double` | 可请求字段 | — |
-| `dt_eps` | `double` | 可请求字段 | — |
-| `total_revenue_ps` | `double` | 可请求字段 | — |
-| `revenue_ps` | `double` | 可请求字段 | — |
-| `capital_rese_ps` | `double` | 可请求字段 | — |
-| `surplus_rese_ps` | `double` | 可请求字段 | — |
-| `undist_profit_ps` | `double` | 可请求字段 | — |
-| `extra_item` | `double` | 可请求字段 | — |
-| `profit_dedt` | `double` | 可请求字段 | — |
-| `gross_margin` | `double` | 可请求字段 | — |
-| `current_ratio` | `double` | 可请求字段 | — |
-| `quick_ratio` | `double` | 可请求字段 | — |
-| `cash_ratio` | `double` | 可请求字段 | — |
-| `invturn_days` | `double` | 可请求字段 | — |
-| `arturn_days` | `double` | 可请求字段 | — |
-| `inv_turn` | `double` | 可请求字段 | — |
-| `ar_turn` | `double` | 可请求字段 | — |
-| `ca_turn` | `double` | 可请求字段 | — |
-| `fa_turn` | `double` | 可请求字段 | — |
-| `assets_turn` | `double` | 可请求字段 | — |
-| `op_income` | `double` | 可请求字段 | — |
-| `valuechange_income` | `double` | 可请求字段 | — |
-| `interst_income` | `double` | 可请求字段 | — |
-| `daa` | `double` | 可请求字段 | — |
-| `ebit` | `double` | 可请求字段 | — |
-| `ebitda` | `double` | 可请求字段 | — |
-| `fcff` | `double` | 可请求字段 | — |
-| `fcfe` | `double` | 可请求字段 | — |
-| `current_exint` | `double` | 可请求字段 | — |
-| `noncurrent_exint` | `double` | 可请求字段 | — |
-| `interestdebt` | `double` | 可请求字段 | — |
-| `netdebt` | `double` | 可请求字段 | — |
-| `tangible_asset` | `double` | 可请求字段 | — |
-| `working_capital` | `double` | 可请求字段 | — |
-| `networking_capital` | `double` | 可请求字段 | — |
-| `invest_capital` | `double` | 可请求字段 | — |
-| `retained_earnings` | `double` | 可请求字段 | — |
-| `diluted2_eps` | `double` | 可请求字段 | — |
-| `bps` | `double` | 可请求字段 | — |
-| `ocfps` | `double` | 可请求字段 | — |
-| `retainedps` | `double` | 可请求字段 | — |
-| `cfps` | `double` | 可请求字段 | — |
-| `ebit_ps` | `double` | 可请求字段 | — |
-| `fcff_ps` | `double` | 可请求字段 | — |
-| `fcfe_ps` | `double` | 可请求字段 | — |
-| `netprofit_margin` | `double` | 可请求字段 | — |
-| `grossprofit_margin` | `double` | 可请求字段 | — |
-| `cogs_of_sales` | `double` | 可请求字段 | — |
-| `expense_of_sales` | `double` | 可请求字段 | — |
-| `profit_to_gr` | `double` | 可请求字段 | — |
-| `saleexp_to_gr` | `double` | 可请求字段 | — |
-| `adminexp_of_gr` | `double` | 可请求字段 | — |
-| `finaexp_of_gr` | `double` | 可请求字段 | — |
-| `impai_ttm` | `double` | 可请求字段 | — |
-| `gc_of_gr` | `double` | 可请求字段 | — |
-| `op_of_gr` | `double` | 可请求字段 | — |
-| `ebit_of_gr` | `double` | 可请求字段 | — |
+| `eps` | `double` | 可请求字段 | 基本每股收益。 |
+| `dt_eps` | `double` | 可请求字段 | 稀释每股收益。 |
+| `total_revenue_ps` | `double` | 可请求字段 | 每股营业总收入。 |
+| `revenue_ps` | `double` | 可请求字段 | 每股营业收入。 |
+| `capital_rese_ps` | `double` | 可请求字段 | 每股资本公积。 |
+| `surplus_rese_ps` | `double` | 可请求字段 | 每股盈余公积。 |
+| `undist_profit_ps` | `double` | 可请求字段 | 每股未分配利润。 |
+| `extra_item` | `double` | 可请求字段 | 非经常性损益。 |
+| `profit_dedt` | `double` | 可请求字段 | 扣除非经常性损益后的净利润。 |
+| `gross_margin` | `double` | 可请求字段 | 销售毛利率。 |
+| `current_ratio` | `double` | 可请求字段 | 流动比率。 |
+| `quick_ratio` | `double` | 可请求字段 | 速动比率。 |
+| `cash_ratio` | `double` | 可请求字段 | 现金比率。 |
+| `invturn_days` | `double` | 可请求字段 | 存货周转天数。 |
+| `arturn_days` | `double` | 可请求字段 | 应收账款周转天数。 |
+| `inv_turn` | `double` | 可请求字段 | 存货周转率。 |
+| `ar_turn` | `double` | 可请求字段 | 应收账款周转率。 |
+| `ca_turn` | `double` | 可请求字段 | 流动资产周转率。 |
+| `fa_turn` | `double` | 可请求字段 | 固定资产周转率。 |
+| `assets_turn` | `double` | 可请求字段 | 总资产周转率。 |
+| `op_income` | `double` | 可请求字段 | 营业利润（财务指标口径）。 |
+| `valuechange_income` | `double` | 可请求字段 | 公允价值变动收益。 |
+| `interst_income` | `double` | 可请求字段 | 利息收入（财务指标口径）。 |
+| `daa` | `double` | 可请求字段 | 折旧与摊销。 |
+| `ebit` | `double` | 可请求字段 | 息税前利润。 |
+| `ebitda` | `double` | 可请求字段 | 息税折旧摊销前利润。 |
+| `fcff` | `double` | 可请求字段 | 企业自由现金流。 |
+| `fcfe` | `double` | 可请求字段 | 股权自由现金流。 |
+| `current_exint` | `double` | 可请求字段 | 流动有息负债。 |
+| `noncurrent_exint` | `double` | 可请求字段 | 非流动有息负债。 |
+| `interestdebt` | `double` | 可请求字段 | 有息负债。 |
+| `netdebt` | `double` | 可请求字段 | 净负债。 |
+| `tangible_asset` | `double` | 可请求字段 | 有形资产。 |
+| `working_capital` | `double` | 可请求字段 | 营运资金。 |
+| `networking_capital` | `double` | 可请求字段 | 净营运资金。 |
+| `invest_capital` | `double` | 可请求字段 | 投入资本。 |
+| `retained_earnings` | `double` | 可请求字段 | 留存收益。 |
+| `diluted2_eps` | `double` | 可请求字段 | 稀释每股收益（另一口径）。 |
+| `bps` | `double` | 可请求字段 | 每股净资产。 |
+| `ocfps` | `double` | 可请求字段 | 每股经营现金流。 |
+| `retainedps` | `double` | 可请求字段 | 每股留存收益。 |
+| `cfps` | `double` | 可请求字段 | 每股现金流。 |
+| `ebit_ps` | `double` | 可请求字段 | 每股息税前利润。 |
+| `fcff_ps` | `double` | 可请求字段 | 每股企业自由现金流。 |
+| `fcfe_ps` | `double` | 可请求字段 | 每股股权自由现金流。 |
+| `netprofit_margin` | `double` | 可请求字段 | 销售净利率。 |
+| `grossprofit_margin` | `double` | 可请求字段 | 销售毛利率。 |
+| `cogs_of_sales` | `double` | 可请求字段 | 销售成本。 |
+| `expense_of_sales` | `double` | 可请求字段 | 销售费用。 |
+| `profit_to_gr` | `double` | 可请求字段 | 净利润占营业总收入比。 |
+| `saleexp_to_gr` | `double` | 可请求字段 | 销售费用占营业总收入比。 |
+| `adminexp_of_gr` | `double` | 可请求字段 | 管理费用占营业总收入比。 |
+| `finaexp_of_gr` | `double` | 可请求字段 | 财务费用占营业总收入比。 |
+| `impai_ttm` | `double` | 可请求字段 | 资产减值损失（TTM）。 |
+| `gc_of_gr` | `double` | 可请求字段 | 营业总成本占营业总收入比。 |
+| `op_of_gr` | `double` | 可请求字段 | 营业利润占营业总收入比。 |
+| `ebit_of_gr` | `double` | 可请求字段 | 息税前利润占营业总收入比。 |
 | `roe` | `double` | 可请求字段 | 净资产收益率。 |
-| `roe_waa` | `double` | 可请求字段 | — |
-| `roe_dt` | `double` | 可请求字段 | — |
-| `roa` | `double` | 可请求字段 | — |
-| `npta` | `double` | 可请求字段 | — |
-| `roic` | `double` | 可请求字段 | — |
-| `roe_yearly` | `double` | 可请求字段 | — |
-| `roa2_yearly` | `double` | 可请求字段 | — |
-| `roe_avg` | `double` | 可请求字段 | — |
-| `opincome_of_ebt` | `double` | 可请求字段 | — |
-| `investincome_of_ebt` | `double` | 可请求字段 | — |
-| `n_op_profit_of_ebt` | `double` | 可请求字段 | — |
-| `tax_to_ebt` | `double` | 可请求字段 | — |
-| `dtprofit_to_profit` | `double` | 可请求字段 | — |
-| `salescash_to_or` | `double` | 可请求字段 | — |
-| `ocf_to_or` | `double` | 可请求字段 | — |
-| `ocf_to_opincome` | `double` | 可请求字段 | — |
-| `capitalized_to_da` | `double` | 可请求字段 | — |
+| `roe_waa` | `double` | 可请求字段 | 加权平均净资产收益率。 |
+| `roe_dt` | `double` | 可请求字段 | 扣除非经常性损益后的净资产收益率。 |
+| `roa` | `double` | 可请求字段 | 总资产收益率。 |
+| `npta` | `double` | 可请求字段 | 总资产净利率。 |
+| `roic` | `double` | 可请求字段 | 投入资本回报率。 |
+| `roe_yearly` | `double` | 可请求字段 | 年化净资产收益率。 |
+| `roa2_yearly` | `double` | 可请求字段 | 年化总资产收益率。 |
+| `roe_avg` | `double` | 可请求字段 | 平均净资产收益率。 |
+| `opincome_of_ebt` | `double` | 可请求字段 | 营业利润占利润总额比。 |
+| `investincome_of_ebt` | `double` | 可请求字段 | 投资收益占利润总额比。 |
+| `n_op_profit_of_ebt` | `double` | 可请求字段 | 非营业利润占利润总额比。 |
+| `tax_to_ebt` | `double` | 可请求字段 | 所得税占利润总额比。 |
+| `dtprofit_to_profit` | `double` | 可请求字段 | 扣非利润占净利润比。 |
+| `salescash_to_or` | `double` | 可请求字段 | 销售商品提供劳务收到的现金占营业收入比。 |
+| `ocf_to_or` | `double` | 可请求字段 | 经营现金净流量占营业收入比。 |
+| `ocf_to_opincome` | `double` | 可请求字段 | 经营现金净流量占营业利润比。 |
+| `capitalized_to_da` | `double` | 可请求字段 | 资本化支出占折旧摊销比。 |
 | `debt_to_assets` | `double` | 可请求字段 | 资产负债率。 |
-| `assets_to_eqt` | `double` | 可请求字段 | — |
-| `dp_assets_to_eqt` | `double` | 可请求字段 | — |
-| `ca_to_assets` | `double` | 可请求字段 | — |
-| `nca_to_assets` | `double` | 可请求字段 | — |
-| `tbassets_to_totalassets` | `double` | 可请求字段 | — |
-| `int_to_talcap` | `double` | 可请求字段 | — |
-| `eqt_to_talcapital` | `double` | 可请求字段 | — |
-| `currentdebt_to_debt` | `double` | 可请求字段 | — |
-| `longdeb_to_debt` | `double` | 可请求字段 | — |
-| `ocf_to_shortdebt` | `double` | 可请求字段 | — |
-| `debt_to_eqt` | `double` | 可请求字段 | — |
-| `eqt_to_debt` | `double` | 可请求字段 | — |
-| `eqt_to_interestdebt` | `double` | 可请求字段 | — |
-| `tangibleasset_to_debt` | `double` | 可请求字段 | — |
-| `tangasset_to_intdebt` | `double` | 可请求字段 | — |
-| `tangibleasset_to_netdebt` | `double` | 可请求字段 | — |
-| `ocf_to_debt` | `double` | 可请求字段 | — |
-| `ocf_to_interestdebt` | `double` | 可请求字段 | — |
-| `ocf_to_netdebt` | `double` | 可请求字段 | — |
-| `ebit_to_interest` | `double` | 可请求字段 | — |
-| `longdebt_to_workingcapital` | `double` | 可请求字段 | — |
-| `ebitda_to_debt` | `double` | 可请求字段 | — |
-| `turn_days` | `double` | 可请求字段 | — |
-| `roa_yearly` | `double` | 可请求字段 | — |
-| `roa_dp` | `double` | 可请求字段 | — |
-| `fixed_assets` | `double` | 可请求字段 | — |
-| `profit_prefin_exp` | `double` | 可请求字段 | — |
-| `non_op_profit` | `double` | 可请求字段 | — |
-| `op_to_ebt` | `double` | 可请求字段 | — |
-| `nop_to_ebt` | `double` | 可请求字段 | — |
-| `ocf_to_profit` | `double` | 可请求字段 | — |
-| `cash_to_liqdebt` | `double` | 可请求字段 | — |
-| `cash_to_liqdebt_withinterest` | `double` | 可请求字段 | — |
-| `op_to_liqdebt` | `double` | 可请求字段 | — |
-| `op_to_debt` | `double` | 可请求字段 | — |
-| `roic_yearly` | `double` | 可请求字段 | — |
-| `total_fa_trun` | `double` | 可请求字段 | — |
-| `profit_to_op` | `double` | 可请求字段 | — |
-| `q_opincome` | `double` | 可请求字段 | — |
-| `q_investincome` | `double` | 可请求字段 | — |
-| `q_dtprofit` | `double` | 可请求字段 | — |
-| `q_eps` | `double` | 可请求字段 | — |
-| `q_netprofit_margin` | `double` | 可请求字段 | — |
-| `q_gsprofit_margin` | `double` | 可请求字段 | — |
-| `q_exp_to_sales` | `double` | 可请求字段 | — |
-| `q_profit_to_gr` | `double` | 可请求字段 | — |
-| `q_saleexp_to_gr` | `double` | 可请求字段 | — |
-| `q_adminexp_to_gr` | `double` | 可请求字段 | — |
-| `q_finaexp_to_gr` | `double` | 可请求字段 | — |
-| `q_impair_to_gr_ttm` | `double` | 可请求字段 | — |
-| `q_gc_to_gr` | `double` | 可请求字段 | — |
-| `q_op_to_gr` | `double` | 可请求字段 | — |
-| `q_roe` | `double` | 可请求字段 | — |
-| `q_dt_roe` | `double` | 可请求字段 | — |
-| `q_npta` | `double` | 可请求字段 | — |
-| `q_opincome_to_ebt` | `double` | 可请求字段 | — |
-| `q_investincome_to_ebt` | `double` | 可请求字段 | — |
-| `q_dtprofit_to_profit` | `double` | 可请求字段 | — |
-| `q_salescash_to_or` | `double` | 可请求字段 | — |
-| `q_ocf_to_sales` | `double` | 可请求字段 | — |
-| `q_ocf_to_or` | `double` | 可请求字段 | — |
-| `basic_eps_yoy` | `double` | 可请求字段 | — |
-| `dt_eps_yoy` | `double` | 可请求字段 | — |
-| `cfps_yoy` | `double` | 可请求字段 | — |
-| `op_yoy` | `double` | 可请求字段 | — |
-| `ebt_yoy` | `double` | 可请求字段 | — |
-| `netprofit_yoy` | `double` | 可请求字段 | — |
-| `dt_netprofit_yoy` | `double` | 可请求字段 | — |
-| `ocf_yoy` | `double` | 可请求字段 | — |
-| `roe_yoy` | `double` | 可请求字段 | — |
-| `bps_yoy` | `double` | 可请求字段 | — |
-| `assets_yoy` | `double` | 可请求字段 | — |
-| `eqt_yoy` | `double` | 可请求字段 | — |
-| `tr_yoy` | `double` | 可请求字段 | — |
-| `or_yoy` | `double` | 可请求字段 | — |
-| `q_gr_yoy` | `double` | 可请求字段 | — |
-| `q_gr_qoq` | `double` | 可请求字段 | — |
-| `q_sales_yoy` | `double` | 可请求字段 | — |
-| `q_sales_qoq` | `double` | 可请求字段 | — |
-| `q_op_yoy` | `double` | 可请求字段 | — |
-| `q_op_qoq` | `double` | 可请求字段 | — |
-| `q_profit_yoy` | `double` | 可请求字段 | — |
-| `q_profit_qoq` | `double` | 可请求字段 | — |
-| `q_netprofit_yoy` | `double` | 可请求字段 | — |
-| `q_netprofit_qoq` | `double` | 可请求字段 | — |
-| `equity_yoy` | `double` | 可请求字段 | — |
-| `rd_exp` | `double` | 可请求字段 | — |
-| `update_flag` | `string` | 可请求字段 | Tushare 更新或修订标记。 |
+| `assets_to_eqt` | `double` | 可请求字段 | 权益乘数（总资产/股东权益）。 |
+| `dp_assets_to_eqt` | `double` | 可请求字段 | 归属母公司股东权益对应的权益乘数。 |
+| `ca_to_assets` | `double` | 可请求字段 | 流动资产占总资产比。 |
+| `nca_to_assets` | `double` | 可请求字段 | 非流动资产占总资产比。 |
+| `tbassets_to_totalassets` | `double` | 可请求字段 | 有形资产占总资产比。 |
+| `int_to_talcap` | `double` | 可请求字段 | 有息负债占总资本比。 |
+| `eqt_to_talcapital` | `double` | 可请求字段 | 股东权益占总资本比。 |
+| `currentdebt_to_debt` | `double` | 可请求字段 | 流动负债占债务比。 |
+| `longdeb_to_debt` | `double` | 可请求字段 | 长期负债占债务比。 |
+| `ocf_to_shortdebt` | `double` | 可请求字段 | 经营现金净流量占短期债务比。 |
+| `debt_to_eqt` | `double` | 可请求字段 | 产权比率（负债/股东权益）。 |
+| `eqt_to_debt` | `double` | 可请求字段 | 股东权益占负债比。 |
+| `eqt_to_interestdebt` | `double` | 可请求字段 | 股东权益占有息负债比。 |
+| `tangibleasset_to_debt` | `double` | 可请求字段 | 有形资产/负债合计。 |
+| `tangasset_to_intdebt` | `double` | 可请求字段 | 有形资产/有息负债。 |
+| `tangibleasset_to_netdebt` | `double` | 可请求字段 | 有形资产/净负债。 |
+| `ocf_to_debt` | `double` | 可请求字段 | 经营现金净流量/负债合计。 |
+| `ocf_to_interestdebt` | `double` | 可请求字段 | 经营现金净流量/有息负债。 |
+| `ocf_to_netdebt` | `double` | 可请求字段 | 经营现金净流量/净负债。 |
+| `ebit_to_interest` | `double` | 可请求字段 | 利息保障倍数。 |
+| `longdebt_to_workingcapital` | `double` | 可请求字段 | 长期负债/营运资金。 |
+| `ebitda_to_debt` | `double` | 可请求字段 | EBITDA/负债合计。 |
+| `turn_days` | `double` | 可请求字段 | 营业周期（天）。 |
+| `roa_yearly` | `double` | 可请求字段 | 年化总资产收益率。 |
+| `roa_dp` | `double` | 可请求字段 | 扣非总资产收益率。 |
+| `fixed_assets` | `double` | 可请求字段 | 固定资产。 |
+| `profit_prefin_exp` | `double` | 可请求字段 | 财务费用前利润。 |
+| `non_op_profit` | `double` | 可请求字段 | 非营业利润。 |
+| `op_to_ebt` | `double` | 可请求字段 | 营业利润/利润总额。 |
+| `nop_to_ebt` | `double` | 可请求字段 | 非营业利润/利润总额。 |
+| `ocf_to_profit` | `double` | 可请求字段 | 经营现金净流量/净利润。 |
+| `cash_to_liqdebt` | `double` | 可请求字段 | 现金/流动负债。 |
+| `cash_to_liqdebt_withinterest` | `double` | 可请求字段 | 现金及现金等价物/含息流动负债。 |
+| `op_to_liqdebt` | `double` | 可请求字段 | 营业利润/流动负债。 |
+| `op_to_debt` | `double` | 可请求字段 | 营业利润/负债合计。 |
+| `roic_yearly` | `double` | 可请求字段 | 年化投入资本回报率。 |
+| `total_fa_trun` | `double` | 可请求字段 | 固定资产周转率。 |
+| `profit_to_op` | `double` | 可请求字段 | 净利润/营业利润。 |
+| `q_opincome` | `double` | 可请求字段 | 单季度营业利润。 |
+| `q_investincome` | `double` | 可请求字段 | 单季度投资收益。 |
+| `q_dtprofit` | `double` | 可请求字段 | 单季度扣非净利润。 |
+| `q_eps` | `double` | 可请求字段 | 单季度基本每股收益。 |
+| `q_netprofit_margin` | `double` | 可请求字段 | 单季度销售净利率。 |
+| `q_gsprofit_margin` | `double` | 可请求字段 | 单季度销售毛利率。 |
+| `q_exp_to_sales` | `double` | 可请求字段 | 单季度期间费用占营收比。 |
+| `q_profit_to_gr` | `double` | 可请求字段 | 单季度净利润占营收比。 |
+| `q_saleexp_to_gr` | `double` | 可请求字段 | 单季度销售费用占营收比。 |
+| `q_adminexp_to_gr` | `double` | 可请求字段 | 单季度管理费用占营收比。 |
+| `q_finaexp_to_gr` | `double` | 可请求字段 | 单季度财务费用占营收比。 |
+| `q_impair_to_gr_ttm` | `double` | 可请求字段 | 单季度资产减值损失占营收比（TTM）。 |
+| `q_gc_to_gr` | `double` | 可请求字段 | 单季度营业总成本占营收比。 |
+| `q_op_to_gr` | `double` | 可请求字段 | 单季度营业利润占营收比。 |
+| `q_roe` | `double` | 可请求字段 | 单季度净资产收益率。 |
+| `q_dt_roe` | `double` | 可请求字段 | 单季度扣非净资产收益率。 |
+| `q_npta` | `double` | 可请求字段 | 单季度总资产净利率。 |
+| `q_opincome_to_ebt` | `double` | 可请求字段 | 单季度营业利润占利润总额比。 |
+| `q_investincome_to_ebt` | `double` | 可请求字段 | 单季度投资收益占利润总额比。 |
+| `q_dtprofit_to_profit` | `double` | 可请求字段 | 单季度扣非利润占净利润比。 |
+| `q_salescash_to_or` | `double` | 可请求字段 | 单季度销售收现占营收比。 |
+| `q_ocf_to_sales` | `double` | 可请求字段 | 单季度经营现金净流量占营收比。 |
+| `q_ocf_to_or` | `double` | 可请求字段 | 单季度经营现金净流量占营收比。 |
+| `basic_eps_yoy` | `double` | 可请求字段 | 基本每股收益同比。 |
+| `dt_eps_yoy` | `double` | 可请求字段 | 稀释每股收益同比。 |
+| `cfps_yoy` | `double` | 可请求字段 | 每股现金流同比。 |
+| `op_yoy` | `double` | 可请求字段 | 营业利润同比。 |
+| `ebt_yoy` | `double` | 可请求字段 | 利润总额同比。 |
+| `netprofit_yoy` | `double` | 可请求字段 | 净利润同比。 |
+| `dt_netprofit_yoy` | `double` | 可请求字段 | 扣非净利润同比。 |
+| `ocf_yoy` | `double` | 可请求字段 | 经营现金净流量同比。 |
+| `roe_yoy` | `double` | 可请求字段 | 净资产收益率同比。 |
+| `bps_yoy` | `double` | 可请求字段 | 每股净资产同比。 |
+| `assets_yoy` | `double` | 可请求字段 | 总资产同比。 |
+| `eqt_yoy` | `double` | 可请求字段 | 股东权益同比。 |
+| `tr_yoy` | `double` | 可请求字段 | 营业总收入同比。 |
+| `or_yoy` | `double` | 可请求字段 | 营业收入同比。 |
+| `q_gr_yoy` | `double` | 可请求字段 | 单季度营收同比。 |
+| `q_gr_qoq` | `double` | 可请求字段 | 单季度营收环比。 |
+| `q_sales_yoy` | `double` | 可请求字段 | 单季度销售同比。 |
+| `q_sales_qoq` | `double` | 可请求字段 | 单季度销售环比。 |
+| `q_op_yoy` | `double` | 可请求字段 | 单季度营业利润同比。 |
+| `q_op_qoq` | `double` | 可请求字段 | 单季度营业利润环比。 |
+| `q_profit_yoy` | `double` | 可请求字段 | 单季度净利润同比。 |
+| `q_profit_qoq` | `double` | 可请求字段 | 单季度净利润环比。 |
+| `q_netprofit_yoy` | `double` | 可请求字段 | 单季度归母净利润同比。 |
+| `q_netprofit_qoq` | `double` | 可请求字段 | 单季度归母净利润环比。 |
+| `equity_yoy` | `double` | 可请求字段 | 净资产同比。 |
+| `rd_exp` | `double` | 可请求字段 | 研发费用。 |
+| `update_flag` | `string` | 可请求字段 | 更新或修订标记。 |
 
 ## `express`：Tushare 业绩快报
 
@@ -722,35 +722,35 @@
 | `ts_code` | `string` | 自动键列 | 带交易所后缀的证券代码。 |
 | `ann_date` | `date32[day]` | 可请求字段 | 公告日期，也是 PIT 的 disclosure date。 |
 | `end_date` | `date32[day]` | 自动键列 | 业绩对应的报告期。 |
-| `revenue` | `double` | 可请求字段 | — |
-| `operate_profit` | `double` | 可请求字段 | — |
-| `total_profit` | `double` | 可请求字段 | — |
-| `n_income` | `double` | 可请求字段 | — |
-| `total_assets` | `double` | 可请求字段 | — |
-| `total_hldr_eqy_exc_min_int` | `double` | 可请求字段 | — |
-| `diluted_eps` | `double` | 可请求字段 | — |
-| `diluted_roe` | `double` | 可请求字段 | — |
-| `yoy_net_profit` | `double` | 可请求字段 | — |
-| `bps` | `double` | 可请求字段 | — |
-| `yoy_sales` | `double` | 可请求字段 | — |
-| `yoy_op` | `double` | 可请求字段 | — |
-| `yoy_tp` | `double` | 可请求字段 | — |
-| `yoy_dedu_np` | `double` | 可请求字段 | — |
-| `yoy_eps` | `double` | 可请求字段 | — |
-| `yoy_roe` | `double` | 可请求字段 | — |
-| `growth_assets` | `double` | 可请求字段 | — |
-| `yoy_equity` | `double` | 可请求字段 | — |
-| `growth_bps` | `double` | 可请求字段 | — |
-| `or_last_year` | `double` | 可请求字段 | — |
-| `op_last_year` | `double` | 可请求字段 | — |
-| `tp_last_year` | `double` | 可请求字段 | — |
-| `np_last_year` | `double` | 可请求字段 | — |
-| `eps_last_year` | `double` | 可请求字段 | — |
-| `open_net_assets` | `double` | 可请求字段 | — |
-| `open_bps` | `double` | 可请求字段 | — |
-| `perf_summary` | `string` | 可请求字段 | — |
+| `revenue` | `double` | 可请求字段 | 营业收入。 |
+| `operate_profit` | `double` | 可请求字段 | 营业利润。 |
+| `total_profit` | `double` | 可请求字段 | 利润总额。 |
+| `n_income` | `double` | 可请求字段 | 净利润。 |
+| `total_assets` | `double` | 可请求字段 | 总资产。 |
+| `total_hldr_eqy_exc_min_int` | `double` | 可请求字段 | 归属于母公司股东的所有者权益。 |
+| `diluted_eps` | `double` | 可请求字段 | 稀释每股收益。 |
+| `diluted_roe` | `double` | 可请求字段 | 稀释净资产收益率。 |
+| `yoy_net_profit` | `double` | 可请求字段 | 净利润同比。 |
+| `bps` | `double` | 可请求字段 | 每股净资产。 |
+| `yoy_sales` | `double` | 可请求字段 | 营业收入同比。 |
+| `yoy_op` | `double` | 可请求字段 | 营业利润同比。 |
+| `yoy_tp` | `double` | 可请求字段 | 利润总额同比。 |
+| `yoy_dedu_np` | `double` | 可请求字段 | 扣非净利润同比。 |
+| `yoy_eps` | `double` | 可请求字段 | 每股收益同比。 |
+| `yoy_roe` | `double` | 可请求字段 | 净资产收益率同比。 |
+| `growth_assets` | `double` | 可请求字段 | 总资产同比。 |
+| `yoy_equity` | `double` | 可请求字段 | 股东权益同比。 |
+| `growth_bps` | `double` | 可请求字段 | 每股净资产同比。 |
+| `or_last_year` | `double` | 可请求字段 | 去年同期营业收入。 |
+| `op_last_year` | `double` | 可请求字段 | 去年同期营业利润。 |
+| `tp_last_year` | `double` | 可请求字段 | 去年同期利润总额。 |
+| `np_last_year` | `double` | 可请求字段 | 去年同期净利润。 |
+| `eps_last_year` | `double` | 可请求字段 | 去年同期每股收益。 |
+| `open_net_assets` | `double` | 可请求字段 | 期初净资产。 |
+| `open_bps` | `double` | 可请求字段 | 期初每股净资产。 |
+| `perf_summary` | `string` | 可请求字段 | 业绩简要说明。 |
 | `is_audit` | `int64` | 可请求字段 | 是否经过审计的标记。 |
-| `remark` | `string` | 可请求字段 | — |
+| `remark` | `string` | 可请求字段 | 备注。 |
 
 ## `forecast`：Tushare 业绩预告
 
@@ -764,15 +764,15 @@
 | `ts_code` | `string` | 自动键列 | 带交易所后缀的证券代码。 |
 | `ann_date` | `date32[day]` | 可请求字段 | 公告日期，也是 PIT 的 disclosure date。 |
 | `end_date` | `date32[day]` | 自动键列 | 业绩预告对应的报告期。 |
-| `type` | `string` | 可请求字段 | — |
-| `p_change_min` | `double` | 可请求字段 | — |
-| `p_change_max` | `double` | 可请求字段 | — |
-| `net_profit_min` | `double` | 可请求字段 | — |
-| `net_profit_max` | `double` | 可请求字段 | — |
-| `last_parent_net` | `double` | 可请求字段 | — |
+| `type` | `string` | 可请求字段 | 业绩预告类型。 |
+| `p_change_min` | `double` | 可请求字段 | 预告净利润变动幅度下限（%）。 |
+| `p_change_max` | `double` | 可请求字段 | 预告净利润变动幅度上限（%）。 |
+| `net_profit_min` | `double` | 可请求字段 | 预告净利润下限。 |
+| `net_profit_max` | `double` | 可请求字段 | 预告净利润上限。 |
+| `last_parent_net` | `double` | 可请求字段 | 上年同期归母净利润。 |
 | `first_ann_date` | `date32[day]` | 可请求字段 | 首次公告日期。 |
-| `summary` | `string` | 可请求字段 | — |
-| `change_reason` | `string` | 可请求字段 | — |
+| `summary` | `string` | 可请求字段 | 业绩预告内容摘要。 |
+| `change_reason` | `string` | 可请求字段 | 业绩变动原因说明。 |
 
 ## `stk_holdernumber`：Tushare 股东人数
 
@@ -798,14 +798,14 @@
 | 字段 | 类型 | 角色 | 说明 |
 | --- | --- | --- | --- |
 | `date` | `date32[day]` | 自动键列 | 区间展开后生成的交易日期，不发送给远程 API。 |
-| `l1_code` | `string` | 可请求字段 | — |
+| `l1_code` | `string` | 可请求字段 | 一级行业代码。 |
 | `l1_name` | `string` | 可请求字段 | 一级行业名称。 |
-| `l2_code` | `string` | 可请求字段 | — |
-| `l2_name` | `string` | 可请求字段 | — |
-| `l3_code` | `string` | 可请求字段 | — |
-| `l3_name` | `string` | 可请求字段 | — |
+| `l2_code` | `string` | 可请求字段 | 二级行业代码。 |
+| `l2_name` | `string` | 可请求字段 | 二级行业名称。 |
+| `l3_code` | `string` | 可请求字段 | 三级行业代码。 |
+| `l3_name` | `string` | 可请求字段 | 三级行业名称。 |
 | `ts_code` | `string` | 自动键列 | 带交易所后缀的成分证券代码。 |
-| `name` | `string` | 可请求字段 | — |
+| `name` | `string` | 可请求字段 | 成分证券名称。 |
 | `in_date` | `date32[day]` | 可请求字段 | 纳入行业成分的日期。 |
 | `out_date` | `date32[day]` | 可请求字段 | 移出行业成分的日期；空值表示仍在成分中。 |
 | `is_new` | `string` | 可请求字段 | 当前成分与历史成分标记。 |
@@ -822,13 +822,13 @@
 | `ts_code` | `string` | 自动键列 | 带交易所后缀的证券代码。 |
 | `ann_date` | `date32[day]` | 自动键列 | 增减持事件公告日期。 |
 | `holder_name` | `string` | 可请求字段 | 股东名称。 |
-| `holder_type` | `string` | 可请求字段 | — |
-| `in_de` | `string` | 可请求字段 | — |
+| `holder_type` | `string` | 可请求字段 | 股东类型。 |
+| `in_de` | `string` | 可请求字段 | 变动方向：增持或减持。 |
 | `change_vol` | `double` | 可请求字段 | 本次增减持股数。 |
-| `change_ratio` | `double` | 可请求字段 | — |
-| `after_share` | `double` | 可请求字段 | — |
-| `after_ratio` | `double` | 可请求字段 | — |
-| `avg_price` | `double` | 可请求字段 | — |
-| `total_share` | `double` | 可请求字段 | — |
+| `change_ratio` | `double` | 可请求字段 | 本次变动比例（%）。 |
+| `after_share` | `double` | 可请求字段 | 变动后持股数。 |
+| `after_ratio` | `double` | 可请求字段 | 变动后持股比例（%）。 |
+| `avg_price` | `double` | 可请求字段 | 本次增减持均价。 |
+| `total_share` | `double` | 可请求字段 | 本次变动合计股数。 |
 | `begin_date` | `date32[day]` | 可请求字段 | 增减持区间开始日期。 |
-| `close_date` | `date32[day]` | 可请求字段 | 事件结束日期。 |
+| `close_date` | `date32[day]` | 可请求字段 | 增减持区间结束日期。 |
