@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Literal, Mapping, Sequence
+from typing import Any, Mapping, Sequence
 
 import pyarrow as pa
 
@@ -168,7 +168,7 @@ class TushareConfig:
 
 @dataclass(frozen=True, slots=True)
 class TushareDatasetSpec:
-    """Describe a catalog-backed Tushare dataset.
+    """Describe a logical catalog-backed Tushare dataset.
 
     Parameters
     ----------
@@ -177,35 +177,17 @@ class TushareDatasetSpec:
     connection
         Name previously passed to
         :meth:`quant_data.DataClient.add_tushare_connection`.
-    api_name
-        Supported Tushare API method name.
-    time_column
-        Period or event column used for ordinary query results.
-    instrument_column
-        Security identifier column, normally ``"ts_code"``.
+    dataset
+        Optional logical catalog name. When omitted, ``name`` is used. Supply
+        this only when registering an alias or a fixed-parameter view.
     fixed_params
         Constant API parameters added to every request. Backend-managed
         parameters such as fields, dates, periods, and instruments are
         reserved.
-    order_columns
-        Optional normalized-result ordering columns.
-    frequency
-        Optional sampling frequency stored in result metadata.
     timezone
         IANA timezone used to interpret query bounds.
     version
         Optional dataset version stored in result metadata.
-    panel_compatible
-        Whether ordinary results can be pivoted to a unique panel.
-    require_time_range
-        Whether both query bounds are mandatory. Catalog requirements can
-        override a false value.
-    panel_mode
-        ``"period"`` for ordinary panels or ``"pit_daily"`` for daily
-        point-in-time panels based on disclosure events.
-    point_in_time
-        Compatibility flag equivalent to selecting ``"pit_daily"`` for panel
-        queries.
     disclosure_lag
         Number of trading sessions between the snapped disclosure date and
         first availability in a point-in-time panel.
@@ -220,24 +202,18 @@ class TushareDatasetSpec:
 
     Notes
     -----
-    ``backend`` is fixed to ``"tushare"``. Dataset fields and query behavior
-    come from the package catalog for ``api_name``.
+    ``backend`` is fixed to ``"tushare"``. Keys, frequencies, table behavior,
+    panel behavior, and remote routes come exclusively from the logical
+    catalog. Disclosure datasets automatically produce point-in-time panels;
+    no panel-mode registration is required.
     """
 
     name: str
     connection: str
-    api_name: str = "income"
-    time_column: str = "end_date"
-    instrument_column: str = "ts_code"
+    dataset: str | None = None
     fixed_params: Mapping[str, object] = field(default_factory=dict)
-    order_columns: tuple[str, ...] = ()
-    frequency: str | None = None
     timezone: str | None = "Asia/Shanghai"
     version: str | None = None
-    panel_compatible: bool = True
-    require_time_range: bool | None = False
-    panel_mode: Literal["period", "pit_daily"] = "period"
-    point_in_time: bool = False
     disclosure_lag: int = 0
     calendar_exchange: str = "SSE"
     fetch_buffer_days: int = 180
@@ -246,6 +222,54 @@ class TushareDatasetSpec:
 
 
 DatasetDefinition = DatasetSpec | ClickHouseDatasetSpec | TushareDatasetSpec
+
+
+@dataclass(frozen=True, slots=True)
+class DatasetContract:
+    """Describe the prepared query and result contract for one dataset.
+
+    Parameters
+    ----------
+    table_time_column
+        Time key used by :meth:`quant_data.DataClient.get_table` and its range
+        filter.
+    instrument_column
+        Security identifier used by both table and panel queries.
+    table_identity_columns
+        Backend-declared columns returned automatically after the two table
+        keys so repeated event or revision rows remain distinguishable.
+    table_frequency, panel_frequency
+        Optional method-specific frequencies recorded in result metadata.
+    panel_time_column
+        Output index name for panel queries, or ``None`` when panels are not
+        supported.
+    timezone
+        IANA timezone used to interpret public query bounds.
+    version
+        Optional dataset version copied to query metadata.
+    panel_compatible
+        Whether panel queries are supported.
+    table_requires_time_range, panel_requires_time_range
+        Whether the corresponding method requires both time bounds.
+
+    Notes
+    -----
+    Backends derive this immutable contract during registration. It prevents
+    backend-specific public specifications from becoming a second source of
+    truth for catalog-owned keys and temporal semantics.
+    """
+
+    table_time_column: str
+    instrument_column: str
+    table_identity_columns: tuple[str, ...] = ()
+    table_frequency: str | None = None
+    panel_time_column: str | None = None
+    panel_frequency: str | None = None
+    timezone: str | None = None
+    version: str | None = None
+    panel_compatible: bool = True
+    table_requires_time_range: bool = False
+    panel_requires_time_range: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -260,6 +284,9 @@ class RegisteredDataset:
         Complete Arrow schema available to callers.
     source
         Backend-owned source descriptor.
+    contract
+        Prepared method-specific keys, frequencies, range requirements, and
+        panel capability.
     adjustment
         Optional price-adjustment policy.
 
@@ -272,6 +299,7 @@ class RegisteredDataset:
     spec: DatasetDefinition
     schema: pa.Schema
     source: Any
+    contract: DatasetContract
     adjustment: PriceAdjustment | None = None
 
 

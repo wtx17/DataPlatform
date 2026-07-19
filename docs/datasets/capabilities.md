@@ -3,7 +3,7 @@
 # 默认数据集能力矩阵
 
 本页直接读取初始化规格和本地后端 catalog；生成过程不会创建远程客户端或读取凭证。
-时间范围均为闭区间。PIT 行的面板语义只影响 `get_panel()`；`get_table()` 仍执行普通查询。
+时间范围均为闭区间。披露数据的 `get_panel()` 自动执行 PIT；`get_table()` 保留公告和修订记录。
 
 | 数据集 | 来源 | 时间键 | 证券键 | 时间范围 | 股票池 | 宽表 | 语义 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -12,32 +12,13 @@
 | minghu_m1 | ClickHouse `stock_base.m1` | date_time | code | 必须 | 可选；须带交易所后缀 | 是 | 普通行情 |
 | minghu_tk | ClickHouse `stock_base.tk` | date_time | code | 必须 | 可选；须带交易所后缀 | 否 | 事件长表 |
 | minghu_zb | ClickHouse `stock_base.zb` | date_time | code | 必须 | 可选；须带交易所后缀 | 否 | 事件长表 |
-| income | Tushare `income` | end_date | ts_code | 可选 | 必须 | 是 | 报告期查询并按 catalog 规则去重 |
-| income_vip | Tushare `income_vip` | end_date | ts_code | 可选 | 可选；`None` 为全市场 | 是 | 报告期查询并按 catalog 规则去重 |
-| balancesheet | Tushare `balancesheet` | end_date | ts_code | 可选 | 必须 | 是 | 报告期查询并按 catalog 规则去重 |
-| balancesheet_vip | Tushare `balancesheet_vip` | end_date | ts_code | 可选 | 可选；`None` 为全市场 | 是 | 报告期查询并按 catalog 规则去重 |
-| cashflow | Tushare `cashflow` | end_date | ts_code | 可选 | 必须 | 是 | 报告期查询并按 catalog 规则去重 |
-| cashflow_vip | Tushare `cashflow_vip` | end_date | ts_code | 可选 | 可选；`None` 为全市场 | 是 | 报告期查询并按 catalog 规则去重 |
-| fina_indicator | Tushare `fina_indicator` | end_date | ts_code | 可选 | 必须 | 是 | 报告期查询并按 catalog 规则去重 |
-| fina_indicator_vip | Tushare `fina_indicator_vip` | end_date | ts_code | 可选 | 可选；`None` 为全市场 | 是 | 报告期查询并按 catalog 规则去重 |
-| express | Tushare `express` | end_date | ts_code | 可选 | 必须 | 是 | 报告期查询并按 catalog 规则去重 |
-| express_vip | Tushare `express_vip` | end_date | ts_code | 可选 | 可选；`None` 为全市场 | 是 | 报告期查询并按 catalog 规则去重 |
-| forecast | Tushare `forecast` | end_date | ts_code | 可选 | 必须 | 是 | 报告期查询并按 catalog 规则去重 |
-| forecast_vip | Tushare `forecast_vip` | end_date | ts_code | 可选 | 可选；`None` 为全市场 | 是 | 报告期查询并按 catalog 规则去重 |
-| stk_holdernumber | Tushare `stk_holdernumber` | end_date | ts_code | 可选 | 可选；`None` 为全市场 | 是 | 普通日期查询 |
-| ci_index_member | Tushare `ci_index_member` | date | ts_code | 必须 | 可选；`None` 为全市场 | 是 | 成员区间按交易日展开 |
-| index_member_all | Tushare `index_member_all` | date | ts_code | 必须 | 可选；`None` 为全市场 | 是 | 成员区间按交易日展开 |
+| income | Tushare `income`, `income_vip` | 表 `end_date`；宽表 `trade_date` | ts_code | 表可选；宽表必须 | 可选；列表走普通 API，`None` 走 VIP | 是 | 原始修订长表；宽表自动按交易日构建 PIT 状态 |
+| balancesheet | Tushare `balancesheet`, `balancesheet_vip` | 表 `end_date`；宽表 `trade_date` | ts_code | 表可选；宽表必须 | 可选；列表走普通 API，`None` 走 VIP | 是 | 原始修订长表；宽表自动按交易日构建 PIT 状态 |
+| cashflow | Tushare `cashflow`, `cashflow_vip` | 表 `end_date`；宽表 `trade_date` | ts_code | 表可选；宽表必须 | 可选；列表走普通 API，`None` 走 VIP | 是 | 原始修订长表；宽表自动按交易日构建 PIT 状态 |
+| fina_indicator | Tushare `fina_indicator`, `fina_indicator_vip` | 表 `end_date`；宽表 `trade_date` | ts_code | 表可选；宽表必须 | 可选；列表走普通 API，`None` 走 VIP | 是 | 原始修订长表；宽表自动按交易日构建 PIT 状态 |
+| express | Tushare `express`, `express_vip` | 表 `end_date`；宽表 `trade_date` | ts_code | 表可选；宽表必须 | 可选；列表走普通 API，`None` 走 VIP | 是 | 原始修订长表；宽表自动按交易日构建 PIT 状态 |
+| forecast | Tushare `forecast`, `forecast_vip` | 表 `end_date`；宽表 `trade_date` | ts_code | 表可选；宽表必须 | 可选；列表走普通 API，`None` 走 VIP | 是 | 原始修订长表；宽表自动按交易日构建 PIT 状态 |
+| stk_holdernumber | Tushare `stk_holdernumber` | 表 `end_date`；宽表 `trade_date` | ts_code | 表可选；宽表必须 | 可选；`None` 为全市场 | 是 | 原始修订长表；宽表自动按交易日构建 PIT 状态 |
+| ci_index_member | Tushare `ci_index_member` | 表 `in_date`；宽表 `date` | ts_code | 必须 | 可选；`None` 为全市场 | 是 | 表返回成员区间；宽表才按交易日展开 |
+| index_member_all | Tushare `index_member_all` | 表 `in_date`；宽表 `date` | ts_code | 必须 | 可选；`None` 为全市场 | 是 | 表返回成员区间；宽表才按交易日展开 |
 | stk_holdertrade | Tushare `stk_holdertrade` | ann_date | ts_code | 必须 | 可选；`None` 为全市场 | 否 | 事件长表 |
-| income_pit | Tushare `income` | end_date | ts_code | 必须 | 必须 | 是 | PIT 日频；公告对齐、延迟、去重、前向填充 |
-| income_vip_pit | Tushare `income_vip` | end_date | ts_code | 必须 | 可选；`None` 为全市场 | 是 | PIT 日频；公告对齐、延迟、去重、前向填充 |
-| balancesheet_pit | Tushare `balancesheet` | end_date | ts_code | 必须 | 必须 | 是 | PIT 日频；公告对齐、延迟、去重、前向填充 |
-| balancesheet_vip_pit | Tushare `balancesheet_vip` | end_date | ts_code | 必须 | 可选；`None` 为全市场 | 是 | PIT 日频；公告对齐、延迟、去重、前向填充 |
-| cashflow_pit | Tushare `cashflow` | end_date | ts_code | 必须 | 必须 | 是 | PIT 日频；公告对齐、延迟、去重、前向填充 |
-| cashflow_vip_pit | Tushare `cashflow_vip` | end_date | ts_code | 必须 | 可选；`None` 为全市场 | 是 | PIT 日频；公告对齐、延迟、去重、前向填充 |
-| fina_indicator_pit | Tushare `fina_indicator` | end_date | ts_code | 必须 | 必须 | 是 | PIT 日频；公告对齐、延迟、去重、前向填充 |
-| fina_indicator_vip_pit | Tushare `fina_indicator_vip` | end_date | ts_code | 必须 | 可选；`None` 为全市场 | 是 | PIT 日频；公告对齐、延迟、去重、前向填充 |
-| express_pit | Tushare `express` | end_date | ts_code | 必须 | 必须 | 是 | PIT 日频；公告对齐、延迟、去重、前向填充 |
-| express_vip_pit | Tushare `express_vip` | end_date | ts_code | 必须 | 可选；`None` 为全市场 | 是 | PIT 日频；公告对齐、延迟、去重、前向填充 |
-| forecast_pit | Tushare `forecast` | end_date | ts_code | 必须 | 必须 | 是 | PIT 日频；公告对齐、延迟、去重、前向填充 |
-| forecast_vip_pit | Tushare `forecast_vip` | end_date | ts_code | 必须 | 可选；`None` 为全市场 | 是 | PIT 日频；公告对齐、延迟、去重、前向填充 |
-| stk_holdernumber_pit | Tushare `stk_holdernumber` | end_date | ts_code | 必须 | 可选；`None` 为全市场 | 是 | PIT 日频；公告对齐、延迟、去重、前向填充 |

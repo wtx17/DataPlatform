@@ -6,7 +6,8 @@
 
 - `DatasetSpec`：路径、键、频率、时区、版本；
 - `ClickHouseDatasetSpec`：连接、表、分区、排序、面板能力；
-- `TushareDatasetSpec`：连接、API、固定参数、查询模式、PIT 日历参数。
+- `TushareDatasetSpec`：连接、可选逻辑数据集、固定参数、版本/时区与 PIT 日历参数；键、
+  频率、远程路由和表/宽表语义不在公开规格中重复配置。
 
 `backend` 是选择实现的判别字段：Parquet 默认为字符串字段，ClickHouse/Tushare 使用
 `init=False` 固定值，调用者不能把远程规格伪装成其他后端。
@@ -20,6 +21,7 @@
 | `spec` | 公共模型 | 规范化后的键、范围、频率和行为。 |
 | `schema` | 后端构造 | 在扫描前验证请求字段，并为 typed empty result 提供类型。 |
 | `source` | 后端私有 | 已解析文件、ClickHouse 表元数据或 Tushare API 元数据。 |
+| `contract` | 后端构造 | 表/宽表各自的键、频率、范围要求、身份列与宽表能力。 |
 | `adjustment` | 可选公共策略 | 因子列、受影响字段与默认开关。 |
 
 客户端不会解释 `source`，只把它传回创建该对象的后端。新后端可以使用自己的冻结
@@ -50,6 +52,6 @@ fingerprint、实际复权状态、日历对齐标记、结果尺寸和错误信
 
 普通 `build_panels()` 接收 Arrow，使用 Polars 做 null/duplicate 检查与 pivot，再转换到
 Pandas。PIT `build_daily_panels()` 接收公告 Arrow 与显式交易日列表，使用 Pandas 做日期
-吸附、同日去重、reindex 和 forward fill。
+吸附、修订冲突处理、逐报告期状态维护和整行状态携带。它不会逐字段 forward fill。
 
 两个函数都不访问后端、不读取配置、不写审计，因此可以独立测试，也可被新查询模式复用。

@@ -12,7 +12,13 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 
 from ..exceptions import DatasetRegistrationError, SchemaMismatchError
-from ..models import DataQuery, DatasetDefinition, DatasetSpec, RegisteredDataset
+from ..models import (
+    DataQuery,
+    DatasetContract,
+    DatasetDefinition,
+    DatasetSpec,
+    RegisteredDataset,
+)
 
 
 def _quote_identifier(value: str) -> str:
@@ -67,7 +73,21 @@ class DuckDBParquetBackend:
                 raise DatasetRegistrationError(
                     f"Parquet file {path} is missing key columns: {sorted(missing_keys)}"
                 )
-        return RegisteredDataset(definition, schema, tuple(files))
+        contract = DatasetContract(
+            table_time_column=definition.time_column,
+            instrument_column=definition.instrument_column,
+            table_frequency=definition.frequency,
+            panel_time_column=definition.time_column,
+            panel_frequency=definition.frequency,
+            timezone=definition.timezone,
+            version=definition.version,
+        )
+        return RegisteredDataset(
+            spec=definition,
+            schema=schema,
+            source=tuple(files),
+            contract=contract,
+        )
 
     def _inspect_schema(self, files: tuple[str, ...]) -> pa.Schema:
         schemas: list[pa.Schema] = []
@@ -128,6 +148,8 @@ class DuckDBParquetBackend:
         """
 
         spec = dataset.spec
+        if not isinstance(spec, DatasetSpec):
+            raise SchemaMismatchError("Invalid Parquet registered dataset")
         time_col = _quote_identifier(spec.time_column)
         instrument_col = _quote_identifier(spec.instrument_column)
         projected = [

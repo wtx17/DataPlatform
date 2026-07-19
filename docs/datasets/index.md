@@ -13,9 +13,9 @@ capabilities
 fields
 ```
 
-普通、VIP 和 PIT 变体共享字段表，但查询能力不同。例如 `income`、`income_vip`、
-`income_pit`、`income_vip_pit` 使用同一 Arrow schema；股票池要求、频率和面板语义集中
-在能力矩阵中。
+每个业务实体只有一个注册名。例如 `income` 的普通与 VIP API 是按股票池自动选择的路由，
+而 PIT 是 `get_panel()` 的固有语义；`get_table()` 则保留原始公告和修订长表。键、频率与
+方法语义集中在能力矩阵中。
 
 ```{admonition} 生成来源
 :class: note

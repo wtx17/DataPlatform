@@ -83,43 +83,17 @@ _CLICKHOUSE_LONG_SPECS = (
     ),
 )
 
-_TUSHARE_QUARTERLY_APIS = (
+_TUSHARE_DATASETS = (
     "income",
-    "income_vip",
     "balancesheet",
-    "balancesheet_vip",
     "cashflow",
-    "cashflow_vip",
     "fina_indicator",
-    "fina_indicator_vip",
     "express",
-    "express_vip",
     "forecast",
-    "forecast_vip",
-)
-
-_TUSHARE_DAILY_PANEL_APIS = (
     "stk_holdernumber",
     "ci_index_member",
     "index_member_all",
-)
-
-_TUSHARE_LONG_APIS = ("stk_holdertrade",)
-
-_TUSHARE_PIT_APIS = (
-    "income",
-    "income_vip",
-    "balancesheet",
-    "balancesheet_vip",
-    "cashflow",
-    "cashflow_vip",
-    "fina_indicator",
-    "fina_indicator_vip",
-    "express",
-    "express_vip",
-    "forecast",
-    "forecast_vip",
-    "stk_holdernumber"
+    "stk_holdertrade",
 )
 
 
@@ -163,8 +137,6 @@ def clickhouse_dataset_specs(
 
 def tushare_dataset_specs(
     connection: str = DEFAULT_TUSHARE_CONNECTION,
-    *,
-    include_pit: bool = True,
 ) -> tuple[TushareDatasetSpec, ...]:
     """Return the project-standard Tushare dataset specifications.
 
@@ -172,71 +144,29 @@ def tushare_dataset_specs(
     ----------
     connection
         Connection profile referenced by every returned specification.
-    include_pit
-        Include the daily point-in-time variants in addition to ordinary
-        period, membership, and event datasets.
-
     Returns
     -------
     tuple[TushareDatasetSpec, ...]
-        Immutable specifications for every supported default Tushare dataset.
+        One immutable specification per supported logical Tushare dataset.
 
     Notes
     -----
-    This function does not initialize a Tushare client or read a token. Normal,
-    VIP, and PIT variants share the backend's schema catalog.
+    This function does not initialize a Tushare client or read a token. The
+    backend chooses ordinary or VIP transport routes from each query's universe;
+    disclosed datasets acquire PIT semantics automatically in ``get_panel``.
     """
-    specs: list[TushareDatasetSpec] = []
-    for api_name in _TUSHARE_QUARTERLY_APIS:
-        specs.append(
-            TushareDatasetSpec(
-                name=api_name,
-                connection=connection,
-                api_name=api_name,
-                frequency="q",
-            )
-        )
-    for api_name in _TUSHARE_DAILY_PANEL_APIS:
-        specs.append(
-            TushareDatasetSpec(
-                name=api_name,
-                connection=connection,
-                api_name=api_name,
-                frequency="d",
-            )
-        )
-    for api_name in _TUSHARE_LONG_APIS:
-        specs.append(
-            TushareDatasetSpec(
-                name=api_name,
-                connection=connection,
-                api_name=api_name,
-            )
-        )
-    if include_pit:
-        for api_name in _TUSHARE_PIT_APIS:
-            specs.append(
-                TushareDatasetSpec(
-                    name=f"{api_name}_pit",
-                    connection=connection,
-                    api_name=api_name,
-                    panel_mode="pit_daily",
-                    frequency="d",
-                    disclosure_lag=0,
-                )
-            )
-    return tuple(specs)
+    return tuple(
+        TushareDatasetSpec(name=name, connection=connection)
+        for name in _TUSHARE_DATASETS
+    )
 
 
-def registered_dataset_names(*, include_tushare_pit: bool = True) -> tuple[str, ...]:
+def registered_dataset_names() -> tuple[str, ...]:
     """Return dataset names registered by
     :func:`quant_data.initialize.initialize_data_client`.
 
     Parameters
     ----------
-    include_tushare_pit
-        Include point-in-time Tushare dataset names.
-
     Returns
     -------
     tuple[str, ...]
@@ -248,9 +178,7 @@ def registered_dataset_names(*, include_tushare_pit: bool = True) -> tuple[str, 
     or remote service access.
     """
     names = [spec.name for spec in clickhouse_dataset_specs()]
-    names.extend(
-        spec.name for spec in tushare_dataset_specs(include_pit=include_tushare_pit)
-    )
+    names.extend(spec.name for spec in tushare_dataset_specs())
     return tuple(names)
 
 
@@ -259,7 +187,6 @@ def initialize_data_client(
     audit_dir: str | Path | None = None,
     register_clickhouse: bool = True,
     register_tushare: bool = True,
-    register_tushare_pit: bool = True,
     clickhouse_connection: str = DEFAULT_CLICKHOUSE_CONNECTION,
     clickhouse_host: str | None = None,
     clickhouse_port: int | None = None,
@@ -282,8 +209,6 @@ def initialize_data_client(
         Configure ClickHouse and register the built-in Minghu datasets.
     register_tushare
         Configure Tushare and register its catalog-backed datasets.
-    register_tushare_pit
-        Include daily point-in-time Tushare variants.
     clickhouse_connection
         ClickHouse profile name referenced by generated specifications.
     clickhouse_host
@@ -313,18 +238,15 @@ def initialize_data_client(
 
     Raises
     ------
-    BackendConnectionError
-        If Tushare registration is requested but its client cannot be
-        initialized from the configured token.
     DatasetRegistrationError
         If a connection or generated dataset specification is invalid.
 
     Notes
     -----
-    Built-in ClickHouse registrations use a local catalog and do not connect
-    until first query. Tushare registration prepares its catalog-backed source
-    and currently initializes the configured Tushare client. Importing this
-    module or calling the specification helpers remains side-effect free.
+    Built-in registrations use local catalogs. Neither ClickHouse nor Tushare
+    opens a remote connection or resolves credentials until a query needs it.
+    Importing this module and calling the specification helpers are side-effect
+    free.
     """
     client = DataClient(
         audit_dir=audit_dir
@@ -368,10 +290,7 @@ def initialize_data_client(
                 or "TUSHARE_TOKEN",
             ),
         )
-        for tushare_spec in tushare_dataset_specs(
-            tushare_connection,
-            include_pit=register_tushare_pit,
-        ):
+        for tushare_spec in tushare_dataset_specs(tushare_connection):
             client.register(tushare_spec)
 
     return client
@@ -379,7 +298,7 @@ def initialize_data_client(
 
 def initialize(**kwargs: Any) -> DataClient:
     """Call :func:`quant_data.initialize.initialize_data_client` with
-    compatibility keyword arguments.
+    the same keyword arguments.
 
     Parameters
     ----------

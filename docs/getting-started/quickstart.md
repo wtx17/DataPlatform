@@ -67,8 +67,8 @@ data.register(
 
 ## Tushare
 
-Tushare schema 由本地 catalog 提供。当前实现会在注册时初始化 Tushare 客户端，但不会
-发起数据 API 查询：
+Tushare schema 与查询语义由本地逻辑 catalog 提供。添加连接和注册都不会读取 token 或
+初始化远程客户端：
 
 ```python
 from quant_data import DataClient, TushareConfig, TushareDatasetSpec
@@ -80,16 +80,31 @@ data.add_tushare_connection(
 )
 data.register(
     TushareDatasetSpec(
-        name="income_vip",
+        name="income",
         connection="tushare",
-        api_name="income_vip",
-        frequency="q",
     )
+)
+
+raw = data.get_table(
+    "income",
+    ["total_revenue"],
+    start="2025-03-31",
+    end="2025-12-31",
+    instruments=["600000.SH"],
+)
+
+pit = data.get_panel(
+    "income",
+    ["total_revenue"],
+    start="2026-01-01",
+    end="2026-03-31",
+    instruments=None,
 )
 ```
 
-普通财报接口需要股票池；相应的 `_vip` 接口允许 `instruments=None` 获取全市场报告期。
-详细调用与去重规则见 [Tushare 后端](../backends/tushare.md)。
+`get_table()` 保留公告和修订长表；`get_panel()` 自动按公告与交易日历构造 PIT 日频宽表。
+显式股票池走普通 API，`instruments=None` 自动走同一逻辑数据集的 VIP 全市场路由。
+详细规则见 [Tushare 后端](../backends/tushare.md)。
 
 ## 上下文管理器
 

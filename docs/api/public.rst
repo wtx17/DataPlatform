@@ -49,6 +49,7 @@
    :toctree: generated
 
    quant_data.models.RegisteredDataset
+   quant_data.models.DatasetContract
    quant_data.models.PriceAdjustment
    quant_data.models.DataQuery
    quant_data.models.QueryAudit
@@ -57,7 +58,15 @@
    quant_data.backends.ClickHouseBackend
    quant_data.backends.TushareBackend
    quant_data.backends.clickhouse.ClickHouseSource
-   quant_data.backends.tushare.TushareTableCatalog
+   quant_data.backends.tushare_catalog.TushareDatasetCatalog
+   quant_data.backends.tushare_catalog.TushareApiRoute
+   quant_data.backends.tushare_catalog.DisclosureSemantics
+   quant_data.backends.tushare_catalog.MembershipSemantics
+   quant_data.backends.tushare_catalog.EventSemantics
+   quant_data.backends.tushare_catalog.PeriodQuery
+   quant_data.backends.tushare_catalog.DateRangeQuery
+   quant_data.backends.tushare_catalog.UnboundedQuery
+   quant_data.backends.tushare_catalog.MembershipQuery
    quant_data.backends.tushare.TushareSource
    quant_data.transforms.build_panels
    quant_data.transforms.build_daily_panels

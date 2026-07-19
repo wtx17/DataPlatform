@@ -9,9 +9,9 @@
 | DatasetSpec/Config 字段 | 类 docstring、快速开始、能力矩阵生成逻辑。 |
 | 默认初始化规格 | `field_notes.toml` 数据集列表、能力矩阵、初始化说明。 |
 | ClickHouse catalog 列或类型 | `field_notes.toml`、字段手册、远程 catalog drift 测试。 |
-| Tushare catalog/schema/query style | `field_notes.toml`、字段手册、Tushare 专题、fake-client 测试。 |
+| Tushare catalog/schema/route/semantics | `field_notes.toml`、字段手册、能力矩阵、Tushare 专题、fake-client 测试。 |
 | 复权字段或默认值 | 查询语义、ClickHouse 专题、审计说明、测试。 |
-| PIT disclosure/lag/buffer/dedupe | PIT 时序图、Tushare 专题、能力矩阵、无前视边界测试。 |
+| PIT disclosure/lag/buffer/revision state | PIT 时序图、Tushare 专题、能力矩阵、旧期晚修订/显式 null/无前视测试。 |
 | 后端协议或新后端 | 架构模型、扩展指南、API 扩展点、导入安全测试。 |
 | 审计 schema 或持久化 | 查询语义、架构、示例 metadata、成功/失败测试。 |
 
@@ -33,7 +33,7 @@ python docs/_scripts/sync_reference.py --check
 
 - API 清单与 `quant_data.__all__`；
 - 默认规格引用的表/API 都存在本地 catalog；
-- 普通、VIP、PIT 共享家族的 schema 完全一致；
+- 一个逻辑 Tushare 数据集的普通/VIP 路由共享同一 schema；
 - `field_notes.toml` 的家族、数据集名、字段名和声明类型没有漂移；
 - 三个生成 Markdown 文件与当前代码一致。
 

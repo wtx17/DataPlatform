@@ -4,7 +4,8 @@
 
 实现 `DataBackend` 的四个方法：
 
-1. `prepare(spec)`：验证规格，构造完整 Arrow schema 与私有 source descriptor；
+1. `prepare(spec)`：验证规格，构造完整 Arrow schema、私有 source descriptor 与
+   `DatasetContract`；
 2. `scan(dataset, query)`：返回至少包含时间键、证券键和请求字段的 Arrow table；
 3. `fingerprint(dataset)`：返回可 JSON 序列化、无凭证的来源信息；
 4. `close()`：释放缓存资源，并允许重复调用。
@@ -35,11 +36,12 @@
 ### Tushare
 
 1. 定义字段 tuple 与 Arrow schema；
-2. 在 `_TUSHARE_TABLES` 增加 `TushareTableCatalog`；
-3. 选择 query style、保留参数、去重键/优先级、排序和 panel compatibility；
-4. 若支持 PIT，声明 disclosure/period 列与公告范围参数；
+2. 在 `tushare_catalog.py` 增加一个 `TushareDatasetCatalog` 逻辑实体；
+3. 分别声明普通/VIP 等 `TushareApiRoute`，以及 period/date/membership 查询形状；
+4. 选择 disclosure、membership 或 event 语义，声明表身份列、排序、宽表键和修订优先级；
 5. 在初始化集合与 `field_notes.toml` 加入数据集；
-6. 用 fake client 覆盖普通、空结果、修订、错误字段和 PIT/行业边界。
+6. 用 fake client 覆盖普通/VIP 自动路由、无 fallback、无损修订、错误字段、PIT 状态机和
+   行业区间边界。
 
 同步脚本会因未知 family、数据集名变化、字段删除或类型漂移而失败。这使 catalog 变化必须
 显式更新字段语义，而不是静默改变站点。

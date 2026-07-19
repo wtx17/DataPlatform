@@ -3,12 +3,12 @@
 # 字段手册
 
 字段名和类型来自 ClickHouse/Tushare 本地 catalog；说明来自经同步脚本校验的
-`field_notes.toml`。普通、VIP 与 PIT 变体按 schema 家族共用字段表。
-“自动键列”由查询结果自动返回，不应再次写入 `fields`。
+`field_notes.toml`。普通与 VIP 只是同一逻辑数据集的远程路由，共用字段表。
+表键与表身份列由 `get_table()` 自动返回；身份列仍可作为 `get_panel()` 的值字段。
 
 ## `minghu_daily`：明湖股票日线
 
-股票日线以 `date × code` 为键。价格字段默认乘以 `hfq`；成交量、成交额、涨跌额和涨跌幅保持原值。
+明湖汇`stock_base.daily`表描述。以 `date × code` 为键。使用`get_panel()`方法取宽表时，价格字段默认乘以 `hfq`；成交量、成交额、涨跌额和涨跌幅保持原值；股票编号自动附上交易所后缀（此点对所有明湖汇数据都一样）。
 
 - 数据集：`minghu_daily`
 - 来源：ClickHouse `stock_base.daily`
@@ -22,79 +22,79 @@
 | `high` | `Nullable(Float64)` | 可请求字段 | 最高价；默认按 `hfq` 后复权。 |
 | `low` | `Nullable(Float64)` | 可请求字段 | 最低价；默认按 `hfq` 后复权。 |
 | `close` | `Nullable(Float64)` | 可请求字段 | 收盘价；默认按 `hfq` 后复权。 |
-| `pclose` | `Nullable(Float64)` | 可请求字段 | 前收盘价，不参与复权。 |
-| `change` | `Nullable(Float64)` | 可请求字段 | 当日涨跌额，不参与复权。 |
-| `pct_chg` | `Nullable(Float64)` | 可请求字段 | 当日涨跌幅（%），不参与复权。 |
-| `volume` | `Nullable(Int64)` | 可请求字段 | 成交量（股），不参与价格复权。 |
-| `amount` | `Nullable(Float64)` | 可请求字段 | 成交额，不参与价格复权。 |
-| `hfq` | `Nullable(Float64)` | 可请求字段 | 后复权乘数；缺失时复权价格也保持缺失。 |
+| `pclose` | `Nullable(Float64)` | 可请求字段 | 昨收价 |
+| `change` | `Nullable(Float64)` | 可请求字段 | 涨跌额 |
+| `pct_chg` | `Nullable(Float64)` | 可请求字段 | 涨跌幅（未复权） |
+| `volume` | `Nullable(Int64)` | 可请求字段 | 成交量（股） |
+| `amount` | `Nullable(Float64)` | 可请求字段 | 成交额 |
+| `hfq` | `Nullable(Float64)` | 可请求字段 | 复权因子 |
 | `ztprice` | `Nullable(Float64)` | 可请求字段 | 涨停价。 |
 | `dtprice` | `Nullable(Float64)` | 可请求字段 | 跌停价。 |
-| `omax_op` | `Nullable(Float64)` | 可请求字段 | 开盘集合竞价撮合期间的最高价。 |
-| `omin_op` | `Nullable(Float64)` | 可请求字段 | 开盘集合竞价撮合期间的最低价。 |
+| `omax_op` | `Nullable(Float64)` | 可请求字段 | 集合可申报最大价格 |
+| `omin_op` | `Nullable(Float64)` | 可请求字段 | 集合可申报最小价格 |
 
 ## `minghu_index_daily`：明湖指数日线
 
-指数日线以 `date × code` 为键，没有价格复权因子，始终返回数据库原值。
+明湖汇`index_base.daily`表描述。以 `date × code` 为键，没有价格复权因子，始终返回数据库原值。
 
 - 数据集：`minghu_index_daily`
 - 来源：ClickHouse `index_base.daily`
 
 | 字段 | 类型 | 角色 | 说明 |
 | --- | --- | --- | --- |
-| `code` | `String` | 自动键列 | 指数代码；返回时依据 `exg` 自动补交易所后缀。 |
+| `code` | `String` | 自动键列 | 证券代码，本表涵盖了 A 股市场的核心宽基与综合指数，包括上证指数（000001）、深证成指（399001）、深证综指（399106）、深证A指（399107）、创业板指（399006）、创业板综（399102）、中小板指（399005）、科创50（000688）、北证50（899050），以及跨市场的沪深300（000300/399300）、中证500（399905）、中证500等权（000982）和中证1000（000852）指数。 |
 | `date` | `Date` | 自动键列 | 交易日期。 |
-| `exg` | `UInt8` | 可请求字段 | 交易所编码：1 为深市，2 为沪市，3 为北交所。 |
-| `open` | `Nullable(Float64)` | 可请求字段 | 指数开盘点位。 |
-| `high` | `Nullable(Float64)` | 可请求字段 | 指数最高点位。 |
-| `low` | `Nullable(Float64)` | 可请求字段 | 指数最低点位。 |
-| `close` | `Nullable(Float64)` | 可请求字段 | 指数收盘点位。 |
-| `pclose` | `Nullable(Float64)` | 可请求字段 | 指数前收盘点位。 |
-| `volume` | `Nullable(Int64)` | 可请求字段 | 指数成交量。 |
-| `amount` | `Nullable(Float64)` | 可请求字段 | 指数成交额。 |
+| `exg` | `UInt8` | 可请求字段 | 交易所编码：1 为深市，2 为沪市 |
+| `open` | `Nullable(Float64)` | 可请求字段 | 开盘价 |
+| `high` | `Nullable(Float64)` | 可请求字段 | 最高价 |
+| `low` | `Nullable(Float64)` | 可请求字段 | 最低价 |
+| `close` | `Nullable(Float64)` | 可请求字段 | 收盘价 |
+| `pclose` | `Nullable(Float64)` | 可请求字段 | 昨收价 |
+| `volume` | `Nullable(Int64)` | 可请求字段 | 成交量（股） |
+| `amount` | `Nullable(Float64)` | 可请求字段 | 成交额 |
 
 ## `minghu_m1`：明湖一分钟线
 
-一分钟行情按 `date` 分区，查询必须同时给出 `start` 和 `end`；`code` 返回带交易所后缀。
+明湖汇`stock_base.m1`表描述。查询必须同时给出 `start` 和 `end`。
 
 - 数据集：`minghu_m1`
 - 来源：ClickHouse `stock_base.m1`
 
 | 字段 | 类型 | 角色 | 说明 |
 | --- | --- | --- | --- |
-| `code` | `String` | 自动键列 | 证券代码；返回时自动补交易所后缀。 |
-| `date_time` | `DateTime('Asia/Shanghai')` | 自动键列 | Asia/Shanghai 时区的一分钟业务时间。 |
+| `code` | `String` | 自动键列 | 证券代码 |
+| `date_time` | `DateTime('Asia/Shanghai')` | 自动键列 | 日期详情 |
 | `exg` | `UInt8` | 可请求字段 | 交易所编码：1 为深市，2 为沪市，3 为北交所。 |
-| `time_int` | `Int32` | 可请求字段 | 分钟时间的整数编码。 |
+| `time_int` | `Int32` | 可请求字段 | 日期详情整形 |
 | `open` | `Nullable(Float64)` | 可请求字段 | 分钟开盘价。 |
 | `close` | `Nullable(Float64)` | 可请求字段 | 分钟收盘价。 |
 | `high` | `Nullable(Float64)` | 可请求字段 | 分钟最高价。 |
 | `low` | `Nullable(Float64)` | 可请求字段 | 分钟最低价。 |
 | `volume` | `Nullable(Float64)` | 可请求字段 | 分钟成交量。 |
 | `amount` | `Nullable(Float64)` | 可请求字段 | 分钟成交额。 |
-| `date` | `Date` | 可请求字段 | 行情所属交易日期（按 `date` 分区）。 |
+| `date` | `Date` | 可请求字段 | 日期 |
 
 ## `minghu_tk`：明湖盘口快照
 
-盘口快照可能在同一秒内出现多行，只支持 `get_table()`；查询按 `date` 分区并以 `time_int` 稳定排序。
+明湖汇`stock_base.tk`表描述。可能在同一秒内出现多行，只支持 `get_table()`；查询以 `time_int` 排序。
 
 - 数据集：`minghu_tk`
 - 来源：ClickHouse `stock_base.tk`
 
 | 字段 | 类型 | 角色 | 说明 |
 | --- | --- | --- | --- |
-| `code` | `String` | 自动键列 | 证券代码；返回时自动补交易所后缀。 |
-| `date_time` | `DateTime('Asia/Shanghai')` | 自动键列 | Asia/Shanghai 时区的快照业务时间。 |
-| `time_int` | `Int32` | 可请求字段 | 同一秒内用于稳定排序的时间整数。 |
+| `code` | `String` | 自动键列 | 证券代码 |
+| `date_time` | `DateTime('Asia/Shanghai')` | 自动键列 | 日期详情, 业务时间, 精确到百分之一秒 |
+| `time_int` | `Int32` | 可请求字段 | date_time日期详情整形 |
 | `exg` | `UInt8` | 可请求字段 | 交易所编码：1 为深市，2 为沪市，3 为北交所。 |
-| `date` | `Date` | 可请求字段 | 快照所属交易日期（按 `date` 分区）。 |
-| `pclose` | `Nullable(Float64)` | 可请求字段 | 前收盘价。 |
-| `open` | `Nullable(Float64)` | 可请求字段 | 当日开盘价。 |
-| `high` | `Nullable(Float64)` | 可请求字段 | 截至快照时点的当日最高价。 |
-| `low` | `Nullable(Float64)` | 可请求字段 | 截至快照时点的当日最低价。 |
-| `last` | `Nullable(Float64)` | 可请求字段 | 最新成交价。 |
-| `total_volume` | `Nullable(Int64)` | 可请求字段 | 截至快照时点的累计成交量。 |
-| `total_value` | `Nullable(Float64)` | 可请求字段 | 截至快照时点的累计成交额。 |
+| `date` | `Date` | 可请求字段 | 日期 |
+| `pclose` | `Nullable(Float64)` | 可请求字段 | 昨收价 |
+| `open` | `Nullable(Float64)` | 可请求字段 | 开始价 |
+| `high` | `Nullable(Float64)` | 可请求字段 | 最高价 |
+| `low` | `Nullable(Float64)` | 可请求字段 | 最低价 |
+| `last` | `Nullable(Float64)` | 可请求字段 | 最新价 |
+| `total_volume` | `Nullable(Int64)` | 可请求字段 | 成交总量 |
+| `total_value` | `Nullable(Float64)` | 可请求字段 | 成交总金额 |
 | `bid1` | `Nullable(Float64)` | 可请求字段 | 买 1 档委托价。 |
 | `bid2` | `Nullable(Float64)` | 可请求字段 | 买 2 档委托价。 |
 | `bid3` | `Nullable(Float64)` | 可请求字段 | 买 3 档委托价。 |
@@ -135,56 +135,56 @@
 | `askv8` | `Nullable(Int64)` | 可请求字段 | 卖 8 档委托量。 |
 | `askv9` | `Nullable(Int64)` | 可请求字段 | 卖 9 档委托量。 |
 | `askv10` | `Nullable(Int64)` | 可请求字段 | 卖 10 档委托量。 |
-| `num_trades` | `Nullable(Int64)` | 可请求字段 | 截至快照时点的累计成交笔数。 |
+| `num_trades` | `Nullable(Int64)` | 可请求字段 | 成交笔数 |
 | `trading_phase_code` | `Nullable(String)` | 可请求字段 | 交易阶段代码。 |
-| `close` | `Nullable(Float64)` | 可请求字段 | 当日收盘价。 |
+| `close` | `Nullable(Float64)` | 可请求字段 | 收盘价 |
 | `ztprice` | `Nullable(Float64)` | 可请求字段 | 涨停价。 |
 | `dtprice` | `Nullable(Float64)` | 可请求字段 | 跌停价。 |
 
 ## `minghu_zb`：明湖逐笔事件
 
-逐笔委托与成交是多事件长表，同一毫秒同一证券可以有多行，只支持 `get_table()`。
+明湖汇`stock_base.tk`表描述。只支持 `get_table()`。
 
 - 数据集：`minghu_zb`
 - 来源：ClickHouse `stock_base.zb`
 
 | 字段 | 类型 | 角色 | 说明 |
 | --- | --- | --- | --- |
-| `code` | `String` | 自动键列 | 证券代码；返回时自动补交易所后缀。 |
-| `date` | `Date` | 可请求字段 | 事件所属交易日期（按 `date` 分区）。 |
-| `date_time` | `DateTime64(3, 'Asia/Shanghai')` | 自动键列 | 毫秒精度、Asia/Shanghai 时区的事件时间。 |
+| `code` | `String` | 自动键列 | 证券代码 |
+| `date` | `Date` | 可请求字段 | 日期 |
+| `date_time` | `DateTime64(3, 'Asia/Shanghai')` | 自动键列 | 日期详情,业务时间,精确到百分之一秒 |
 | `exg` | `UInt8` | 可请求字段 | 交易所编码：1 为深市，2 为沪市，3 为北交所。 |
-| `time_int` | `Int32` | 可请求字段 | 毫秒级事件时间的整数编码，配合 `seqno` 用于稳定排序。 |
-| `price` | `Nullable(Float64)` | 可请求字段 | 委托或成交价格。 |
-| `volume` | `Nullable(Int64)` | 可请求字段 | 委托或成交数量。 |
-| `side` | `FixedString(1)` | 可请求字段 | 买卖方向标记。后端转换为普通 Arrow 字符串。 |
-| `type` | `FixedString(1)` | 可请求字段 | 业务类型标记：区分委托与成交。后端转换为普通 Arrow 字符串。 |
-| `trade_flag` | `FixedString(1)` | 可请求字段 | 成交方向或成交标记。后端转换为普通 Arrow 字符串。 |
-| `chno` | `UInt64` | 可请求字段 | 行情通道号。 |
-| `bidno` | `Nullable(Int64)` | 可请求字段 | 买方委托号。 |
-| `askno` | `Nullable(Int64)` | 可请求字段 | 卖方委托号。 |
-| `ordno` | `Nullable(Int64)` | 可请求字段 | 原始委托号。 |
-| `seqno` | `UInt64` | 可请求字段 | 业务序列号，用于同一时间内的稳定排序。 |
-| `ctype` | `FixedString(1)` | 可请求字段 | 撤单类型标记。后端转换为普通 Arrow 字符串。 |
-| `cbidno` | `Nullable(Int64)` | 可请求字段 | 撤单对应的买方委托号。 |
-| `caskno` | `Nullable(Int64)` | 可请求字段 | 撤单对应的卖方委托号。 |
+| `time_int` | `Int32` | 可请求字段 | date_time日期详情整形 |
+| `price` | `Nullable(Float64)` | 可请求字段 | 价格 |
+| `volume` | `Nullable(Int64)` | 可请求字段 | 委托数量 |
+| `side` | `FixedString(1)` | 可请求字段 | 买卖标志,B-买单,S-卖单,G-借入,F-借出 |
+| `type` | `FixedString(1)` | 可请求字段 | 订单类别,沪市为A-新增委托订单,D-删除委托订单,即撤单,深市为1-市价,2-限价,U - 本方最优 |
+| `trade_flag` | `FixedString(1)` | 可请求字段 | 成交单子的内外盘标志:B-沪市外盘,主动买,S-沪市内盘,主动卖,N-沪市未知,F-深市成交,4-深市撤单 |
+| `chno` | `UInt64` | 可请求字段 | 频道代码，通道 |
+| `bidno` | `Nullable(Int64)` | 可请求字段 | 成交单子的买方委托编号 |
+| `askno` | `Nullable(Int64)` | 可请求字段 | 成交单子的卖方委托编号 |
+| `ordno` | `Nullable(Int64)` | 可请求字段 | 委托单子的编号,sh的order_no,sz的app_seq_num,sz的成交单子也有,sh的成交单子无,默认为0 |
+| `seqno` | `UInt64` | 可请求字段 | 序列号,要求连续递增唯一,sh的业务序列号biz_idx,sz的委托索引app_seq_num |
+| `ctype` | `FixedString(1)` | 可请求字段 | type,side,flag的合并, 1是新增限价委托,2是新增市价委托,3是新增本方最优,4是撤单,5是成交 |
+| `cbidno` | `Nullable(Int64)` | 可请求字段 | 合并的成交单子的买方委托编号 |
+| `caskno` | `Nullable(Int64)` | 可请求字段 | 合并的成交单子的买方委托编号 |
 
 ## `income`：Tushare 利润表
 
-普通、VIP 与 PIT 利润表共享 schema。普通面板以报告期为时间；PIT 面板以实际披露日对齐交易日。
+利润表逻辑数据集。`get_table()` 按报告期保留全部公告与修订；`get_panel()` 以 `f_ann_date` 对齐交易日并构造 PIT 状态。
 
-- 数据集：`income`, `income_vip`, `income_pit`, `income_vip_pit`
+- 数据集：`income`
 - 来源：Tushare `income`, `income_vip`
 
 | 字段 | 类型 | 角色 | 说明 |
 | --- | --- | --- | --- |
 | `ts_code` | `string` | 自动键列 | 带交易所后缀的证券代码。 |
-| `ann_date` | `date32[day]` | 可请求字段 | 公告日期。 |
-| `f_ann_date` | `date32[day]` | 可请求字段 | 实际披露日期，也是利润表 PIT 的 disclosure date。 |
+| `ann_date` | `date32[day]` | 表自动身份列 | 公告日期。 |
+| `f_ann_date` | `date32[day]` | 表自动身份列 | 实际披露日期，也是利润表 PIT 的 disclosure date。 |
 | `end_date` | `date32[day]` | 自动键列 | 财务报告期。 |
-| `report_type` | `string` | 可请求字段 | 报告类型。 |
-| `comp_type` | `string` | 可请求字段 | 公司类型。 |
-| `end_type` | `string` | 可请求字段 | 报告期类型。 |
+| `report_type` | `string` | 表自动身份列 | 报告类型。 |
+| `comp_type` | `string` | 表自动身份列 | 公司类型。 |
+| `end_type` | `string` | 表自动身份列 | 报告期类型。 |
 | `basic_eps` | `double` | 可请求字段 | 基本每股收益。 |
 | `diluted_eps` | `double` | 可请求字段 | 稀释每股收益。 |
 | `total_revenue` | `double` | 可请求字段 | 营业总收入。 |
@@ -262,24 +262,24 @@
 | `comshare_payable_dvd` | `double` | 可请求字段 | 应付普通股股利。 |
 | `capit_comstock_div` | `double` | 可请求字段 | 转作股本的普通股股利。 |
 | `continued_net_profit` | `double` | 可请求字段 | 持续经营净利润。 |
-| `update_flag` | `string` | 可请求字段 | 更新或修订标记。 |
+| `update_flag` | `string` | 表自动身份列 | 更新或修订标记。 |
 
 ## `balancesheet`：Tushare 资产负债表
 
-普通、VIP 与 PIT 资产负债表共享 schema；PIT 使用 `f_ann_date` 作为披露日期。
+资产负债表逻辑数据集；原始表保留修订，PIT 宽表使用 `f_ann_date` 作为披露日期。
 
-- 数据集：`balancesheet`, `balancesheet_vip`, `balancesheet_pit`, `balancesheet_vip_pit`
+- 数据集：`balancesheet`
 - 来源：Tushare `balancesheet`, `balancesheet_vip`
 
 | 字段 | 类型 | 角色 | 说明 |
 | --- | --- | --- | --- |
 | `ts_code` | `string` | 自动键列 | 带交易所后缀的证券代码。 |
-| `ann_date` | `date32[day]` | 可请求字段 | 公告日期。 |
-| `f_ann_date` | `date32[day]` | 可请求字段 | 实际披露日期，也是 PIT 的 disclosure date。 |
+| `ann_date` | `date32[day]` | 表自动身份列 | 公告日期。 |
+| `f_ann_date` | `date32[day]` | 表自动身份列 | 实际披露日期，也是 PIT 的 disclosure date。 |
 | `end_date` | `date32[day]` | 自动键列 | 财务报告期。 |
-| `report_type` | `string` | 可请求字段 | 报告类型。 |
-| `comp_type` | `string` | 可请求字段 | 公司类型。 |
-| `end_type` | `string` | 可请求字段 | 报告期类型。 |
+| `report_type` | `string` | 表自动身份列 | 报告类型。 |
+| `comp_type` | `string` | 表自动身份列 | 公司类型。 |
+| `end_type` | `string` | 表自动身份列 | 报告期类型。 |
 | `total_share` | `double` | 可请求字段 | 股份总数。 |
 | `cap_rese` | `double` | 可请求字段 | 资本公积金。 |
 | `undistr_porfit` | `double` | 可请求字段 | 未分配利润。 |
@@ -424,24 +424,24 @@
 | `accounts_pay` | `double` | 可请求字段 | 应付及预收款项。 |
 | `oth_rcv_total` | `double` | 可请求字段 | 其他应收款合计。 |
 | `fix_assets_total` | `double` | 可请求字段 | 固定资产合计。 |
-| `update_flag` | `string` | 可请求字段 | 更新或修订标记。 |
+| `update_flag` | `string` | 表自动身份列 | 更新或修订标记。 |
 
 ## `cashflow`：Tushare 现金流量表
 
-普通、VIP 与 PIT 现金流量表共享 schema；PIT 使用 `f_ann_date` 作为披露日期。
+现金流量表逻辑数据集；原始表保留修订，PIT 宽表使用 `f_ann_date` 作为披露日期。
 
-- 数据集：`cashflow`, `cashflow_vip`, `cashflow_pit`, `cashflow_vip_pit`
+- 数据集：`cashflow`
 - 来源：Tushare `cashflow`, `cashflow_vip`
 
 | 字段 | 类型 | 角色 | 说明 |
 | --- | --- | --- | --- |
 | `ts_code` | `string` | 自动键列 | 带交易所后缀的证券代码。 |
-| `ann_date` | `date32[day]` | 可请求字段 | 公告日期。 |
-| `f_ann_date` | `date32[day]` | 可请求字段 | 实际披露日期，也是 PIT 的 disclosure date。 |
+| `ann_date` | `date32[day]` | 表自动身份列 | 公告日期。 |
+| `f_ann_date` | `date32[day]` | 表自动身份列 | 实际披露日期，也是 PIT 的 disclosure date。 |
 | `end_date` | `date32[day]` | 自动键列 | 财务报告期。 |
-| `comp_type` | `string` | 可请求字段 | 公司类型。 |
-| `report_type` | `string` | 可请求字段 | 报告类型。 |
-| `end_type` | `string` | 可请求字段 | 报告期类型。 |
+| `comp_type` | `string` | 表自动身份列 | 公司类型。 |
+| `report_type` | `string` | 表自动身份列 | 报告类型。 |
+| `end_type` | `string` | 表自动身份列 | 报告期类型。 |
 | `net_profit` | `double` | 可请求字段 | 净利润。 |
 | `finan_exp` | `double` | 可请求字段 | 财务费用（付现部分调整项）。 |
 | `c_fr_sale_sg` | `double` | 可请求字段 | 销售商品、提供劳务收到的现金。 |
@@ -531,19 +531,19 @@
 | `beg_bal_cash` | `double` | 可请求字段 | 期初现金余额。 |
 | `end_bal_cash_equ` | `double` | 可请求字段 | 期末现金等价物余额。 |
 | `beg_bal_cash_equ` | `double` | 可请求字段 | 期初现金等价物余额。 |
-| `update_flag` | `string` | 可请求字段 | 更新或修订标记。 |
+| `update_flag` | `string` | 表自动身份列 | 更新或修订标记。 |
 
 ## `fina_indicator`：Tushare 财务指标
 
-普通、VIP 与 PIT 财务指标共享 schema。该家族没有 `f_ann_date`，PIT 使用 `ann_date`。
+财务指标逻辑数据集。该家族没有 `f_ann_date`，PIT 宽表使用 `ann_date`。
 
-- 数据集：`fina_indicator`, `fina_indicator_vip`, `fina_indicator_pit`, `fina_indicator_vip_pit`
+- 数据集：`fina_indicator`
 - 来源：Tushare `fina_indicator`, `fina_indicator_vip`
 
 | 字段 | 类型 | 角色 | 说明 |
 | --- | --- | --- | --- |
 | `ts_code` | `string` | 自动键列 | 带交易所后缀的证券代码。 |
-| `ann_date` | `date32[day]` | 可请求字段 | 公告日期，也是 PIT 的 disclosure date。 |
+| `ann_date` | `date32[day]` | 表自动身份列 | 公告日期，也是 PIT 的 disclosure date。 |
 | `end_date` | `date32[day]` | 自动键列 | 财务报告期。 |
 | `eps` | `double` | 可请求字段 | 基本每股收益。 |
 | `dt_eps` | `double` | 可请求字段 | 稀释每股收益。 |
@@ -708,19 +708,19 @@
 | `q_netprofit_qoq` | `double` | 可请求字段 | 单季度归母净利润环比。 |
 | `equity_yoy` | `double` | 可请求字段 | 净资产同比。 |
 | `rd_exp` | `double` | 可请求字段 | 研发费用。 |
-| `update_flag` | `string` | 可请求字段 | 更新或修订标记。 |
+| `update_flag` | `string` | 表自动身份列 | 更新或修订标记。 |
 
 ## `express`：Tushare 业绩快报
 
-普通、VIP 与 PIT 业绩快报共享 schema；PIT 使用 `ann_date` 作为披露日期。
+业绩快报逻辑数据集；原始表保留公告记录，PIT 宽表使用 `ann_date`。
 
-- 数据集：`express`, `express_vip`, `express_pit`, `express_vip_pit`
+- 数据集：`express`
 - 来源：Tushare `express`, `express_vip`
 
 | 字段 | 类型 | 角色 | 说明 |
 | --- | --- | --- | --- |
 | `ts_code` | `string` | 自动键列 | 带交易所后缀的证券代码。 |
-| `ann_date` | `date32[day]` | 可请求字段 | 公告日期，也是 PIT 的 disclosure date。 |
+| `ann_date` | `date32[day]` | 表自动身份列 | 公告日期，也是 PIT 的 disclosure date。 |
 | `end_date` | `date32[day]` | 自动键列 | 业绩对应的报告期。 |
 | `revenue` | `double` | 可请求字段 | 营业收入。 |
 | `operate_profit` | `double` | 可请求字段 | 营业利润。 |
@@ -749,66 +749,65 @@
 | `open_net_assets` | `double` | 可请求字段 | 期初净资产。 |
 | `open_bps` | `double` | 可请求字段 | 期初每股净资产。 |
 | `perf_summary` | `string` | 可请求字段 | 业绩简要说明。 |
-| `is_audit` | `int64` | 可请求字段 | 是否经过审计的标记。 |
+| `is_audit` | `int64` | 表自动身份列 | 是否经过审计的标记。 |
 | `remark` | `string` | 可请求字段 | 备注。 |
 
 ## `forecast`：Tushare 业绩预告
 
-普通、VIP 与 PIT 业绩预告共享 schema；PIT 使用 `ann_date`，并保留首次公告日期用于修订优先级。
+业绩预告逻辑数据集；PIT 使用 `ann_date`，并以首次公告日期参与修订优先级。
 
-- 数据集：`forecast`, `forecast_vip`, `forecast_pit`, `forecast_vip_pit`
+- 数据集：`forecast`
 - 来源：Tushare `forecast`, `forecast_vip`
 
 | 字段 | 类型 | 角色 | 说明 |
 | --- | --- | --- | --- |
 | `ts_code` | `string` | 自动键列 | 带交易所后缀的证券代码。 |
-| `ann_date` | `date32[day]` | 可请求字段 | 公告日期，也是 PIT 的 disclosure date。 |
+| `ann_date` | `date32[day]` | 表自动身份列 | 公告日期，也是 PIT 的 disclosure date。 |
 | `end_date` | `date32[day]` | 自动键列 | 业绩预告对应的报告期。 |
-| `type` | `string` | 可请求字段 | 业绩预告类型。 |
+| `type` | `string` | 表自动身份列 | 业绩预告类型。 |
 | `p_change_min` | `double` | 可请求字段 | 预告净利润变动幅度下限（%）。 |
 | `p_change_max` | `double` | 可请求字段 | 预告净利润变动幅度上限（%）。 |
 | `net_profit_min` | `double` | 可请求字段 | 预告净利润下限。 |
 | `net_profit_max` | `double` | 可请求字段 | 预告净利润上限。 |
 | `last_parent_net` | `double` | 可请求字段 | 上年同期归母净利润。 |
-| `first_ann_date` | `date32[day]` | 可请求字段 | 首次公告日期。 |
+| `first_ann_date` | `date32[day]` | 表自动身份列 | 首次公告日期。 |
 | `summary` | `string` | 可请求字段 | 业绩预告内容摘要。 |
 | `change_reason` | `string` | 可请求字段 | 业绩变动原因说明。 |
 
 ## `stk_holdernumber`：Tushare 股东人数
 
-普通查询以统计截止日为时间；PIT 日频面板使用公告日并允许全市场查询。
+股东人数原始表按统计截止日筛选并保留公告记录；PIT 日频面板使用公告日。
 
-- 数据集：`stk_holdernumber`, `stk_holdernumber_pit`
+- 数据集：`stk_holdernumber`
 - 来源：Tushare `stk_holdernumber`
 
 | 字段 | 类型 | 角色 | 说明 |
 | --- | --- | --- | --- |
 | `ts_code` | `string` | 自动键列 | 带交易所后缀的证券代码。 |
-| `ann_date` | `date32[day]` | 可请求字段 | 股东人数公告日期，也是 PIT 的 disclosure date。 |
+| `ann_date` | `date32[day]` | 表自动身份列 | 股东人数公告日期，也是 PIT 的 disclosure date。 |
 | `end_date` | `date32[day]` | 自动键列 | 股东人数统计截止日期。 |
 | `holder_num` | `int64` | 可请求字段 | 股东户数。 |
 
 ## `industry_member`：Tushare 行业成分
 
-中信和申万行业成分共享 schema；后端将 `in_date`/`out_date` 区间展开到开市日并生成内部 `date` 键。
+中信和申万行业成分共享 schema；`get_table()` 保留 `in_date`/`out_date` 原始区间，`get_panel()` 才将区间展开到开市日。
 
 - 数据集：`ci_index_member`, `index_member_all`
 - 来源：Tushare `ci_index_member`, `index_member_all`
 
 | 字段 | 类型 | 角色 | 说明 |
 | --- | --- | --- | --- |
-| `date` | `date32[day]` | 自动键列 | 区间展开后生成的交易日期，不发送给远程 API。 |
-| `l1_code` | `string` | 可请求字段 | 一级行业代码。 |
+| `l1_code` | `string` | 表自动身份列 | 一级行业代码。 |
 | `l1_name` | `string` | 可请求字段 | 一级行业名称。 |
-| `l2_code` | `string` | 可请求字段 | 二级行业代码。 |
+| `l2_code` | `string` | 表自动身份列 | 二级行业代码。 |
 | `l2_name` | `string` | 可请求字段 | 二级行业名称。 |
-| `l3_code` | `string` | 可请求字段 | 三级行业代码。 |
+| `l3_code` | `string` | 表自动身份列 | 三级行业代码。 |
 | `l3_name` | `string` | 可请求字段 | 三级行业名称。 |
 | `ts_code` | `string` | 自动键列 | 带交易所后缀的成分证券代码。 |
 | `name` | `string` | 可请求字段 | 成分证券名称。 |
-| `in_date` | `date32[day]` | 可请求字段 | 纳入行业成分的日期。 |
-| `out_date` | `date32[day]` | 可请求字段 | 移出行业成分的日期；空值表示仍在成分中。 |
-| `is_new` | `string` | 可请求字段 | 当前成分与历史成分标记。 |
+| `in_date` | `date32[day]` | 自动键列 | 纳入行业成分的日期。 |
+| `out_date` | `date32[day]` | 表自动身份列 | 移出行业成分的日期；空值表示仍在成分中。 |
+| `is_new` | `string` | 表自动身份列 | 当前成分与历史成分标记。 |
 
 ## `stk_holdertrade`：Tushare 股东增减持
 
@@ -821,14 +820,14 @@
 | --- | --- | --- | --- |
 | `ts_code` | `string` | 自动键列 | 带交易所后缀的证券代码。 |
 | `ann_date` | `date32[day]` | 自动键列 | 增减持事件公告日期。 |
-| `holder_name` | `string` | 可请求字段 | 股东名称。 |
-| `holder_type` | `string` | 可请求字段 | 股东类型。 |
-| `in_de` | `string` | 可请求字段 | 变动方向：增持或减持。 |
+| `holder_name` | `string` | 表自动身份列 | 股东名称。 |
+| `holder_type` | `string` | 表自动身份列 | 股东类型。 |
+| `in_de` | `string` | 表自动身份列 | 变动方向：增持或减持。 |
 | `change_vol` | `double` | 可请求字段 | 本次增减持股数。 |
 | `change_ratio` | `double` | 可请求字段 | 本次变动比例（%）。 |
 | `after_share` | `double` | 可请求字段 | 变动后持股数。 |
 | `after_ratio` | `double` | 可请求字段 | 变动后持股比例（%）。 |
 | `avg_price` | `double` | 可请求字段 | 本次增减持均价。 |
 | `total_share` | `double` | 可请求字段 | 本次变动合计股数。 |
-| `begin_date` | `date32[day]` | 可请求字段 | 增减持区间开始日期。 |
-| `close_date` | `date32[day]` | 可请求字段 | 增减持区间结束日期。 |
+| `begin_date` | `date32[day]` | 表自动身份列 | 增减持区间开始日期。 |
+| `close_date` | `date32[day]` | 表自动身份列 | 增减持区间结束日期。 |

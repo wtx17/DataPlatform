@@ -16,10 +16,11 @@ digraph PitQuerySequence {
   calendar [label="Fetch/cache trade calendar\nend + margin days", fillcolor="#E8F6F3"];
   snap [label="Snap announcement\nto next open session"];
   lag [label="Add disclosure_lag\nin trading sessions", fillcolor="#FCF3CF"];
-  dedupe [label="Same available day\nkeep latest report period"];
-  fill [label="Reindex + forward fill\nthen clip to request", fillcolor="#FDEBD0"];
+  dedupe [label="Resolve same-period revisions\nby catalog precedence"];
+  state [label="Maintain latest row per period\nactivate greatest known period"];
+  fill [label="Carry whole-row state\nthen clip to request", fillcolor="#FDEBD0"];
   result [label="Daily panels\nwith PIT metadata", fillcolor="#EBDEF0"];
   audit [label="Audit calendar_aligned=true", fillcolor="#FADBD8"];
 
-  request -> buffer -> calendar -> snap -> lag -> dedupe -> fill -> result -> audit;
+  request -> buffer -> calendar -> snap -> lag -> dedupe -> state -> fill -> result -> audit;
 }

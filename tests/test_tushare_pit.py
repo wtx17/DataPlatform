@@ -1,15 +1,8 @@
-"""Point-in-time daily panel tests for the Tushare backend.
-
-Uses an injected fake Tushare client (mirrors the ClickHouse FakeFactory pattern)
-so no network or tushare install is required. Verifies daily trading-calendar
-alignment, forward-fill, T+1 availability, weekend snapping, carry-in, the
-balancesheet path (no f_ann_date input), same-day multi-period aggregation, and
-the period-range guard. Also covers fina_indicator, whose disclosure date is
-ann_date rather than f_ann_date, plus express and forecast registrations.
-"""
+"""Logical routing and point-in-time semantics for the Tushare backend."""
 
 from __future__ import annotations
 
+import json
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -18,187 +11,283 @@ import pandas as pd
 import pytest
 
 from quant_data import (
+    BackendConnectionError,
     DataClient,
     InvalidQueryError,
+    RemoteQueryError,
+    SchemaMismatchError,
     TushareConfig,
     TushareDatasetSpec,
 )
 
 
 def weekdays(start: date, end: date) -> list[date]:
-    days: list[date] = []
+    result: list[date] = []
     current = start
     while current <= end:
-        if current.weekday() < 5:  # Mon-Fri
-            days.append(current)
+        if current.weekday() < 5:
+            result.append(current)
         current += timedelta(days=1)
-    return days
+    return result
 
 
-# Fixed trading calendar covering the fetch window. Excludes weekends (and would
-# naturally exclude holidays if they were dropped); days the test cares about:
-# 2024-04-25 (Thu), 2024-04-26 (Fri), 2024-04-27/28 (weekend),
-# 2024-04-29 (Mon), 2024-04-30 (Tue), 2024-05-02 (Thu), ...
-CALENDAR = weekdays(date(2024, 3, 1), date(2024, 5, 31))
+CALENDAR = weekdays(date(2023, 12, 1), date(2024, 6, 30))
 
 
 class FakeTushareClient:
-    def __init__(self, data: dict[str, pd.DataFrame], calendar: list[date]) -> None:
+    def __init__(
+        self,
+        data: dict[str, pd.DataFrame],
+        *,
+        fail_apis: set[str] | None = None,
+    ) -> None:
         self.data = data
-        self.calendar = calendar
+        self.fail_apis = fail_apis or set()
         self.calls: list[tuple[str, dict[str, Any]]] = []
 
     def query(self, api_name: str, **params: Any) -> pd.DataFrame:
         self.calls.append((api_name, dict(params)))
+        if api_name in self.fail_apis:
+            raise RuntimeError(f"forced failure: {api_name}")
         if api_name == "trade_cal":
-            start = datetime_strptime(params["start_date"])
-            end = datetime_strptime(params["end_date"])
-            days = [d for d in self.calendar if start <= d <= end]
+            start = _parse_date(params["start_date"])
+            end = _parse_date(params["end_date"])
+            days = [day for day in CALENDAR if start <= day <= end]
             return pd.DataFrame(
-                {"cal_date": [d.strftime("%Y%m%d") for d in days], "is_open": ["1"] * len(days)}
+                {"cal_date": [day.strftime("%Y%m%d") for day in days]}
             )
-        frame = self.data[api_name]
+
+        frame = self.data[api_name].copy()
+        instrument = params.get("ts_code")
+        if instrument is not None:
+            frame = frame.loc[frame["ts_code"] == instrument]
+        period = params.get("period")
+        if period is not None:
+            frame = frame.loc[frame["end_date"].astype(str) == str(period)]
+        start = params.get("start_date")
+        end = params.get("end_date")
+        disclosure_column = "f_ann_date" if "f_ann_date" in frame else "ann_date"
+        if start is not None:
+            frame = frame.loc[frame[disclosure_column].astype(str) >= str(start)]
+        if end is not None:
+            frame = frame.loc[frame[disclosure_column].astype(str) <= str(end)]
         fields = params.get("fields")
         if fields:
-            cols = [c for c in fields.split(",") if c in frame.columns]
-            frame = frame.loc[:, cols]
-        ts_code = params.get("ts_code")
-        if ts_code is not None and "ts_code" in frame.columns:
-            frame = frame[frame["ts_code"] == ts_code]
-        period = params.get("period")
-        if period is not None and "end_date" in frame.columns:
-            frame = frame[frame["end_date"].astype(str) == str(period)]
-        if "ann_date" in frame.columns:
-            start = params.get("start_date")
-            end = params.get("end_date")
-            if start is not None:
-                frame = frame[frame["ann_date"].astype(str) >= str(start)]
-            if end is not None:
-                frame = frame[frame["ann_date"].astype(str) <= str(end)]
+            requested = str(fields).split(",")
+            frame = frame.loc[:, [column for column in requested if column in frame]]
         return frame.reset_index(drop=True)
-
-
-def datetime_strptime(value: str) -> date:
-    return datetime.strptime(str(value), "%Y%m%d").date()
 
 
 class FakeFactory:
     def __init__(self, client: FakeTushareClient) -> None:
         self.client = client
+        self.calls = 0
 
     def __call__(self, **kwargs: Any) -> FakeTushareClient:
+        self.calls += 1
         return self.client
 
 
+def _parse_date(value: object) -> date:
+    return datetime.strptime(str(value), "%Y%m%d").date()
+
+
 def income_rows(rows: list[dict[str, Any]]) -> pd.DataFrame:
-    if not rows:
-        return pd.DataFrame(
-            columns=["ts_code", "ann_date", "f_ann_date", "end_date", "update_flag"]
-        )
-    base = pd.DataFrame(rows)
-    for col in ("ann_date", "f_ann_date", "end_date"):
-        base[col] = base[col].astype(str)
-    return base
+    columns = [
+        "ts_code",
+        "ann_date",
+        "f_ann_date",
+        "end_date",
+        "report_type",
+        "comp_type",
+        "end_type",
+        "update_flag",
+        "total_revenue",
+    ]
+    normalized: list[dict[str, Any]] = []
+    for row in rows:
+        current = {
+            "report_type": "1",
+            "comp_type": "1",
+            "end_type": "1",
+            "update_flag": 0,
+            **row,
+        }
+        normalized.append(current)
+    return pd.DataFrame(normalized, columns=columns)
 
 
-def fina_indicator_rows(rows: list[dict[str, Any]]) -> pd.DataFrame:
-    if not rows:
-        return pd.DataFrame(columns=["ts_code", "ann_date", "end_date", "update_flag"])
-    base = pd.DataFrame(rows)
-    for col in ("ann_date", "end_date"):
-        base[col] = base[col].astype(str)
-    return base
-
-
-def express_rows(rows: list[dict[str, Any]]) -> pd.DataFrame:
-    if not rows:
-        return pd.DataFrame(columns=["ts_code", "ann_date", "end_date", "is_audit"])
-    base = pd.DataFrame(rows)
-    for col in ("ann_date", "end_date"):
-        base[col] = base[col].astype(str)
-    return base
-
-
-def forecast_rows(rows: list[dict[str, Any]]) -> pd.DataFrame:
-    if not rows:
-        return pd.DataFrame(columns=["ts_code", "ann_date", "end_date", "first_ann_date"])
-    base = pd.DataFrame(rows)
-    for col in ("ann_date", "end_date", "first_ann_date"):
-        if col in base.columns:
-            base[col] = base[col].astype(str)
-    return base
+def indicator_rows(rows: list[dict[str, Any]]) -> pd.DataFrame:
+    columns = ["ts_code", "ann_date", "end_date", "update_flag", "roe"]
+    normalized = [{"update_flag": 0, **row} for row in rows]
+    return pd.DataFrame(normalized, columns=columns)
 
 
 def make_client(
-    tmp_path: Path, data: dict[str, pd.DataFrame]
-) -> tuple[DataClient, FakeTushareClient]:
-    fake = FakeTushareClient(data, CALENDAR)
-    client = DataClient(tmp_path / "audit", tushare_client_factory=FakeFactory(fake))
+    tmp_path: Path,
+    data: dict[str, pd.DataFrame],
+    *,
+    fail_apis: set[str] | None = None,
+) -> tuple[DataClient, FakeTushareClient, FakeFactory]:
+    fake = FakeTushareClient(data, fail_apis=fail_apis)
+    factory = FakeFactory(fake)
+    client = DataClient(tmp_path / "audit", tushare_client_factory=factory)
     client.add_tushare_connection("ts", TushareConfig(token="x"))
-    return client, fake
+    return client, fake, factory
 
 
-def register_pit(
+def register_income(
     client: DataClient,
     *,
-    name: str = "income_pit",
-    api_name: str = "income",
-    **spec_kwargs: Any,
-) -> TushareDatasetSpec:
-    time_column = spec_kwargs.pop("time_column", "f_ann_date")
-    disclosure_lag = spec_kwargs.pop("disclosure_lag", 1)
-    spec = TushareDatasetSpec(
-        name=name,
-        connection="ts",
-        api_name=api_name,
-        time_column=time_column,
-        point_in_time=True,
-        disclosure_lag=disclosure_lag,
-        fetch_buffer_days=60,
-        fetch_margin_days=15,
-        **spec_kwargs,
+    name: str = "income",
+    disclosure_lag: int = 0,
+) -> None:
+    client.register(
+        TushareDatasetSpec(
+            name=name,
+            dataset=None if name == "income" else "income",
+            connection="ts",
+            disclosure_lag=disclosure_lag,
+            fetch_buffer_days=60,
+            fetch_margin_days=15,
+        )
     )
-    client.register(spec)
-    return spec
 
 
-def test_daily_index_and_forward_fill(tmp_path: Path) -> None:
+def test_registration_is_offline_and_token_is_resolved_on_query(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delenv("MISSING_TUSHARE_TOKEN", raising=False)
+    client = DataClient(tmp_path / "audit")
+    client.add_tushare_connection(
+        "ts", TushareConfig(token=None, token_env="MISSING_TUSHARE_TOKEN")
+    )
+    client.register(TushareDatasetSpec(name="income", connection="ts"))
+
+    with pytest.raises(BackendConnectionError, match="MISSING_TUSHARE_TOKEN"):
+        client.get_table(
+            "income",
+            ["total_revenue"],
+            start="2024-03-31",
+            end="2024-03-31",
+            instruments=["600000.SH"],
+        )
+
+
+def test_table_uses_standard_route_and_retains_all_revisions(tmp_path: Path) -> None:
     data = {
         "income": income_rows(
             [
                 {
                     "ts_code": "600000.SH",
-                    "ann_date": "20240426",
-                    "f_ann_date": "20240426",
+                    "ann_date": "20240420",
+                    "f_ann_date": "20240420",
                     "end_date": "20240331",
                     "update_flag": 0,
-                    "total_revenue": 1.0e10,
-                }
+                    "total_revenue": 10.0,
+                },
+                {
+                    "ts_code": "600000.SH",
+                    "ann_date": "20240430",
+                    "f_ann_date": "20240430",
+                    "end_date": "20240331",
+                    "update_flag": 1,
+                    "total_revenue": 11.0,
+                },
             ]
         )
     }
-    client, _ = make_client(tmp_path, data)
-    register_pit(client)
-    panels = client.get_panel(
-        "income_pit",
-        fields=["total_revenue"],
-        start="2024-04-25",
-        end="2024-05-10",
+    client, fake, _ = make_client(tmp_path, data)
+    register_income(client)
+
+    table = client.get_table(
+        "income",
+        ["total_revenue"],
+        start="2024-03-31",
+        end="2024-03-31",
         instruments=["600000.SH"],
     )
-    panel = panels["total_revenue"]
-    # Index is the trading days within [start, end].
-    expected_index = [d for d in CALENDAR if date(2024, 4, 25) <= d <= date(2024, 5, 10)]
-    assert list(panel.index) == [pd.Timestamp(d) for d in expected_index]
-    # Disclosed Fri 2024-04-26 -> available from Mon 2024-04-29 (T+1); persists to end.
-    assert pd.isna(panel.loc[pd.Timestamp("2024-04-25"), "600000.SH"])
-    assert pd.isna(panel.loc[pd.Timestamp("2024-04-26"), "600000.SH"])
-    value = panel.loc[pd.Timestamp("2024-04-29"), "600000.SH"]
-    assert value == pytest.approx(1.0e10)
-    assert panel.iloc[-1]["600000.SH"] == pytest.approx(1.0e10)
+
+    assert table["total_revenue"].to_pylist() == [10.0, 11.0]
+    assert table.column_names == [
+        "end_date",
+        "ts_code",
+        "ann_date",
+        "f_ann_date",
+        "report_type",
+        "comp_type",
+        "end_type",
+        "update_flag",
+        "total_revenue",
+    ]
+    data_calls = [(api, params) for api, params in fake.calls if api != "trade_cal"]
+    assert [api for api, _ in data_calls] == ["income"]
+    assert data_calls[0][1]["period"] == "20240331"
+    assert data_calls[0][1]["ts_code"] == "600000.SH"
 
 
-def test_no_look_ahead_t_plus_one(tmp_path: Path) -> None:
+def test_whole_market_table_uses_vip_route(tmp_path: Path) -> None:
+    data = {
+        "income_vip": income_rows(
+            [
+                {
+                    "ts_code": "600000.SH",
+                    "ann_date": "20240420",
+                    "f_ann_date": "20240420",
+                    "end_date": "20240331",
+                    "total_revenue": 10.0,
+                },
+                {
+                    "ts_code": "000004.SZ",
+                    "ann_date": "20240421",
+                    "f_ann_date": "20240421",
+                    "end_date": "20240331",
+                    "total_revenue": 8.0,
+                },
+            ]
+        )
+    }
+    client, fake, _ = make_client(tmp_path, data)
+    register_income(client)
+
+    table = client.get_table(
+        "income",
+        ["total_revenue"],
+        start="2024-03-31",
+        end="2024-03-31",
+        instruments=None,
+    )
+
+    assert sorted(table["ts_code"].to_pylist()) == ["000004.SZ", "600000.SH"]
+    calls = [(api, params) for api, params in fake.calls if api != "trade_cal"]
+    assert [api for api, _ in calls] == ["income_vip"]
+    assert "ts_code" not in calls[0][1]
+    audit_path = next((tmp_path / "audit").rglob("*.json"))
+    audit = json.loads(audit_path.read_text())
+    assert audit["source"]["selected_api"] == "income_vip"
+    assert audit["parameters"]["data_api"] == "income_vip"
+
+
+def test_route_failure_does_not_fallback(tmp_path: Path) -> None:
+    data = {
+        "income": income_rows([]),
+        "income_vip": income_rows([]),
+    }
+    client, fake, _ = make_client(tmp_path, data, fail_apis={"income"})
+    register_income(client)
+
+    with pytest.raises(RemoteQueryError, match="income"):
+        client.get_table(
+            "income",
+            ["total_revenue"],
+            start="2024-03-31",
+            end="2024-03-31",
+            instruments=["600000.SH"],
+        )
+    assert [api for api, _ in fake.calls] == ["income"]
+
+
+def test_panel_defaults_to_zero_disclosure_lag(tmp_path: Path) -> None:
     data = {
         "income": income_rows(
             [
@@ -207,29 +296,28 @@ def test_no_look_ahead_t_plus_one(tmp_path: Path) -> None:
                     "ann_date": "20240426",
                     "f_ann_date": "20240426",
                     "end_date": "20240331",
-                    "update_flag": 0,
                     "total_revenue": 7.0,
                 }
             ]
         )
     }
-    client, _ = make_client(tmp_path, data)
-    register_pit(client, disclosure_lag=1)
+    client, _, _ = make_client(tmp_path, data)
+    register_income(client)
+
     panel = client.get_panel(
-        "income_pit",
-        fields=["total_revenue"],
+        "income",
+        ["total_revenue"],
         start="2024-04-25",
         end="2024-04-30",
         instruments=["600000.SH"],
     )["total_revenue"]
-    # On the disclosure day itself the value is NOT yet available.
-    assert pd.isna(panel.loc[pd.Timestamp("2024-04-26"), "600000.SH"])
-    # First available the next trading day (Mon 2024-04-29).
-    assert panel.loc[pd.Timestamp("2024-04-29"), "600000.SH"] == pytest.approx(7.0)
+
+    assert pd.isna(panel.loc[pd.Timestamp("2024-04-25"), "600000.SH"])
+    assert panel.loc[pd.Timestamp("2024-04-26"), "600000.SH"] == pytest.approx(7.0)
+    assert panel.loc[pd.Timestamp("2024-04-30"), "600000.SH"] == pytest.approx(7.0)
 
 
-def test_non_trading_day_disclosure_snaps_forward(tmp_path: Path) -> None:
-    # Disclosed on Saturday 2024-04-27 -> snaps to Mon 2024-04-29, +lag -> Tue 2024-04-30.
+def test_panel_snaps_weekend_then_applies_trading_session_lag(tmp_path: Path) -> None:
     data = {
         "income": income_rows(
             [
@@ -238,27 +326,27 @@ def test_non_trading_day_disclosure_snaps_forward(tmp_path: Path) -> None:
                     "ann_date": "20240427",
                     "f_ann_date": "20240427",
                     "end_date": "20240331",
-                    "update_flag": 0,
                     "total_revenue": 9.0,
                 }
             ]
         )
     }
-    client, _ = make_client(tmp_path, data)
-    register_pit(client)
+    client, _, _ = make_client(tmp_path, data)
+    register_income(client, disclosure_lag=1)
+
     panel = client.get_panel(
-        "income_pit",
-        fields=["total_revenue"],
-        start="2024-04-25",
-        end="2024-05-03",
+        "income",
+        ["total_revenue"],
+        start="2024-04-26",
+        end="2024-05-01",
         instruments=["600000.SH"],
     )["total_revenue"]
+
     assert pd.isna(panel.loc[pd.Timestamp("2024-04-29"), "600000.SH"])
     assert panel.loc[pd.Timestamp("2024-04-30"), "600000.SH"] == pytest.approx(9.0)
 
 
-def test_carry_in_from_pre_start_disclosure(tmp_path: Path) -> None:
-    # A disclosure before the panel start should carry into the first panel day.
+def test_late_old_period_revision_does_not_displace_new_period(tmp_path: Path) -> None:
     data = {
         "income": income_rows(
             [
@@ -267,534 +355,284 @@ def test_carry_in_from_pre_start_disclosure(tmp_path: Path) -> None:
                     "ann_date": "20240410",
                     "f_ann_date": "20240410",
                     "end_date": "20231231",
-                    "update_flag": 0,
-                    "total_revenue": 3.0,
-                }
+                    "total_revenue": 1.0,
+                },
+                {
+                    "ts_code": "600000.SH",
+                    "ann_date": "20240422",
+                    "f_ann_date": "20240422",
+                    "end_date": "20240331",
+                    "total_revenue": 2.0,
+                },
+                {
+                    "ts_code": "600000.SH",
+                    "ann_date": "20240430",
+                    "f_ann_date": "20240430",
+                    "end_date": "20231231",
+                    "update_flag": 1,
+                    "total_revenue": 99.0,
+                },
             ]
         )
     }
-    client, _ = make_client(tmp_path, data)
-    register_pit(client)
+    client, _, _ = make_client(tmp_path, data)
+    register_income(client)
+
     panel = client.get_panel(
-        "income_pit",
-        fields=["total_revenue"],
-        start="2024-04-25",
-        end="2024-04-30",
+        "income",
+        ["total_revenue"],
+        start="2024-04-19",
+        end="2024-05-02",
         instruments=["600000.SH"],
     )["total_revenue"]
-    assert panel.loc[pd.Timestamp("2024-04-25"), "600000.SH"] == pytest.approx(3.0)
+
+    assert panel.loc[pd.Timestamp("2024-04-22"), "600000.SH"] == pytest.approx(2.0)
+    assert panel.loc[pd.Timestamp("2024-04-30"), "600000.SH"] == pytest.approx(2.0)
 
 
-def test_balancesheet_path_never_sends_f_ann_date(tmp_path: Path) -> None:
-    data = {
-        "balancesheet": income_rows(
-            [
-                {
-                    "ts_code": "600000.SH",
-                    "ann_date": "20240426",
-                    "f_ann_date": "20240426",
-                    "end_date": "20240331",
-                    "update_flag": 0,
-                    "total_assets": 5.0e10,
-                }
-            ]
-        )
-    }
-    client, fake = make_client(tmp_path, data)
-    register_pit(client, name="bs_pit", api_name="balancesheet")
-    panel = client.get_panel(
-        "bs_pit",
-        fields=["total_assets"],
-        start="2024-04-25",
-        end="2024-05-10",
-        instruments=["600000.SH"],
-    )["total_assets"]
-    # Same PIT behaviour as income.
-    assert pd.isna(panel.loc[pd.Timestamp("2024-04-26"), "600000.SH"])
-    assert panel.loc[pd.Timestamp("2024-04-29"), "600000.SH"] == pytest.approx(5.0e10)
-    # balancesheet has no f_ann_date input -> the backend must never send it.
-    for api_name, params in fake.calls:
-        if api_name == "balancesheet":
-            assert "f_ann_date" not in params
-
-
-def test_fina_indicator_period_query_uses_ann_date_catalog(tmp_path: Path) -> None:
-    data = {
-        "fina_indicator": fina_indicator_rows(
-            [
-                {
-                    "ts_code": "600000.SH",
-                    "ann_date": "20240426",
-                    "end_date": "20240331",
-                    "update_flag": 0,
-                    "roe": 10.5,
-                    "eps": 0.42,
-                },
-                {
-                    "ts_code": "600000.SH",
-                    "ann_date": "20231028",
-                    "end_date": "20230930",
-                    "update_flag": 0,
-                    "roe": 9.5,
-                    "eps": 0.36,
-                },
-            ]
-        )
-    }
-    client, fake = make_client(tmp_path, data)
-    client.register(
-        TushareDatasetSpec(
-            name="indicator",
-            connection="ts",
-            api_name="fina_indicator",
-            frequency="q",
-        )
-    )
-
-    table = client.get_table(
-        "indicator",
-        fields=["roe", "eps"],
-        start="2024-03-31",
-        end="2024-03-31",
-        instruments=["600000.SH"],
-    )
-
-    frame = table.to_pandas()
-    assert frame["roe"].tolist() == pytest.approx([10.5])
-    assert frame["eps"].tolist() == pytest.approx([0.42])
-    indicator_calls = [params for api_name, params in fake.calls if api_name == "fina_indicator"]
-    assert len(indicator_calls) == 1
-    assert indicator_calls[0]["period"] == "20240331"
-    assert indicator_calls[0]["ts_code"] == "600000.SH"
-    assert "f_ann_date" not in str(indicator_calls[0]["fields"]).split(",")
-    assert "ann_date" in str(indicator_calls[0]["fields"]).split(",")
-
-
-def test_fina_indicator_vip_period_query_supports_whole_market(tmp_path: Path) -> None:
-    data = {
-        "fina_indicator_vip": fina_indicator_rows(
-            [
-                {
-                    "ts_code": "600000.SH",
-                    "ann_date": "20240426",
-                    "end_date": "20240331",
-                    "update_flag": 0,
-                    "roe": 10.5,
-                },
-                {
-                    "ts_code": "000004.SZ",
-                    "ann_date": "20240425",
-                    "end_date": "20240331",
-                    "update_flag": 0,
-                    "roe": 8.25,
-                },
-            ]
-        )
-    }
-    client, fake = make_client(tmp_path, data)
-    client.register(
-        TushareDatasetSpec(
-            name="indicator_vip",
-            connection="ts",
-            api_name="fina_indicator_vip",
-            frequency="q",
-        )
-    )
-
-    panel = client.get_panel(
-        "indicator_vip",
-        fields=["roe"],
-        start="2024-03-31",
-        end="2024-03-31",
-        instruments=None,
-    )["roe"]
-
-    assert list(panel.columns) == ["000004.SZ", "600000.SH"]
-    assert panel.loc[date(2024, 3, 31), "600000.SH"] == pytest.approx(10.5)
-    assert panel.loc[date(2024, 3, 31), "000004.SZ"] == pytest.approx(8.25)
-    indicator_calls = [
-        params for api_name, params in fake.calls if api_name == "fina_indicator_vip"
-    ]
-    assert len(indicator_calls) == 1
-    assert "ts_code" not in indicator_calls[0]
-    assert "f_ann_date" not in str(indicator_calls[0]["fields"]).split(",")
-
-
-def test_fina_indicator_pit_uses_ann_date_without_f_ann_date(tmp_path: Path) -> None:
-    data = {
-        "fina_indicator": fina_indicator_rows(
-            [
-                {
-                    "ts_code": "600000.SH",
-                    "ann_date": "20240426",
-                    "end_date": "20240331",
-                    "update_flag": 0,
-                    "roe": 10.5,
-                }
-            ]
-        )
-    }
-    client, fake = make_client(tmp_path, data)
-    register_pit(
-        client,
-        name="indicator_pit",
-        api_name="fina_indicator",
-        time_column="end_date",
-        disclosure_lag=1,
-    )
-
-    panel = client.get_panel(
-        "indicator_pit",
-        fields=["roe"],
-        start="2024-04-25",
-        end="2024-05-03",
-        instruments=["600000.SH"],
-    )["roe"]
-
-    assert pd.isna(panel.loc[pd.Timestamp("2024-04-26"), "600000.SH"])
-    assert panel.loc[pd.Timestamp("2024-04-29"), "600000.SH"] == pytest.approx(10.5)
-    assert panel.iloc[-1]["600000.SH"] == pytest.approx(10.5)
-    indicator_calls = [params for api_name, params in fake.calls if api_name == "fina_indicator"]
-    assert len(indicator_calls) == 1
-    fields = str(indicator_calls[0]["fields"]).split(",")
-    assert "ann_date" in fields
-    assert "f_ann_date" not in fields
-    assert indicator_calls[0]["start_date"] == "20240225"
-    assert indicator_calls[0]["end_date"] == "20240503"
-
-
-def test_express_period_query_supports_text_and_integer_fields(tmp_path: Path) -> None:
-    data = {
-        "express": express_rows(
-            [
-                {
-                    "ts_code": "600000.SH",
-                    "ann_date": "20240208",
-                    "end_date": "20231231",
-                    "revenue": 100.0,
-                    "n_income": 12.0,
-                    "perf_summary": "solid",
-                    "is_audit": 1,
-                }
-            ]
-        )
-    }
-    client, fake = make_client(tmp_path, data)
-    client.register(
-        TushareDatasetSpec(
-            name="express",
-            connection="ts",
-            api_name="express",
-            frequency="q",
-        )
-    )
-
-    table = client.get_table(
-        "express",
-        fields=["revenue", "perf_summary", "is_audit"],
-        start="2023-12-31",
-        end="2023-12-31",
-        instruments=["600000.SH"],
-    )
-
-    frame = table.to_pandas()
-    assert frame["revenue"].tolist() == pytest.approx([100.0])
-    assert frame["perf_summary"].tolist() == ["solid"]
-    assert frame["is_audit"].tolist() == [1]
-    express_calls = [params for api_name, params in fake.calls if api_name == "express"]
-    assert len(express_calls) == 1
-    assert express_calls[0]["period"] == "20231231"
-    assert express_calls[0]["ts_code"] == "600000.SH"
-    assert "ann_date" in str(express_calls[0]["fields"]).split(",")
-    assert "f_ann_date" not in str(express_calls[0]["fields"]).split(",")
-
-
-def test_express_vip_period_query_supports_whole_market(tmp_path: Path) -> None:
-    data = {
-        "express_vip": express_rows(
-            [
-                {
-                    "ts_code": "600000.SH",
-                    "ann_date": "20240208",
-                    "end_date": "20231231",
-                    "revenue": 100.0,
-                },
-                {
-                    "ts_code": "000004.SZ",
-                    "ann_date": "20240209",
-                    "end_date": "20231231",
-                    "revenue": 80.0,
-                },
-            ]
-        )
-    }
-    client, fake = make_client(tmp_path, data)
-    client.register(
-        TushareDatasetSpec(
-            name="express_vip",
-            connection="ts",
-            api_name="express_vip",
-            frequency="q",
-        )
-    )
-
-    panel = client.get_panel(
-        "express_vip",
-        fields=["revenue"],
-        start="2023-12-31",
-        end="2023-12-31",
-        instruments=None,
-    )["revenue"]
-
-    assert list(panel.columns) == ["000004.SZ", "600000.SH"]
-    assert panel.loc[date(2023, 12, 31), "600000.SH"] == pytest.approx(100.0)
-    assert panel.loc[date(2023, 12, 31), "000004.SZ"] == pytest.approx(80.0)
-    express_calls = [params for api_name, params in fake.calls if api_name == "express_vip"]
-    assert len(express_calls) == 1
-    assert "ts_code" not in express_calls[0]
-    assert "f_ann_date" not in str(express_calls[0]["fields"]).split(",")
-
-
-def test_forecast_period_query_supports_first_ann_date_and_text(tmp_path: Path) -> None:
-    data = {
-        "forecast": forecast_rows(
-            [
-                {
-                    "ts_code": "600000.SH",
-                    "ann_date": "20240131",
-                    "end_date": "20231231",
-                    "type": "increase",
-                    "p_change_min": 10.0,
-                    "p_change_max": 20.0,
-                    "first_ann_date": "20240115",
-                    "summary": "range raised",
-                }
-            ]
-        )
-    }
-    client, fake = make_client(tmp_path, data)
-    client.register(
-        TushareDatasetSpec(
-            name="forecast",
-            connection="ts",
-            api_name="forecast",
-            frequency="q",
-        )
-    )
-
-    table = client.get_table(
-        "forecast",
-        fields=["type", "p_change_min", "first_ann_date", "summary"],
-        start="2023-12-31",
-        end="2023-12-31",
-        instruments=["600000.SH"],
-    )
-
-    frame = table.to_pandas()
-    assert frame["type"].tolist() == ["increase"]
-    assert frame["p_change_min"].tolist() == pytest.approx([10.0])
-    assert str(frame["first_ann_date"].iloc[0]) == "2024-01-15"
-    assert frame["summary"].tolist() == ["range raised"]
-    forecast_calls = [params for api_name, params in fake.calls if api_name == "forecast"]
-    assert len(forecast_calls) == 1
-    assert forecast_calls[0]["period"] == "20231231"
-    assert forecast_calls[0]["ts_code"] == "600000.SH"
-    fields = str(forecast_calls[0]["fields"]).split(",")
-    assert "ann_date" in fields
-    assert "first_ann_date" in fields
-    assert "f_ann_date" not in fields
-
-
-def test_forecast_vip_period_query_supports_whole_market(tmp_path: Path) -> None:
-    data = {
-        "forecast_vip": forecast_rows(
-            [
-                {
-                    "ts_code": "600000.SH",
-                    "ann_date": "20240131",
-                    "end_date": "20231231",
-                    "type": "increase",
-                    "p_change_min": 10.0,
-                    "first_ann_date": "20240115",
-                },
-                {
-                    "ts_code": "000004.SZ",
-                    "ann_date": "20240131",
-                    "end_date": "20231231",
-                    "type": "loss",
-                    "p_change_min": -20.0,
-                    "first_ann_date": "20240118",
-                },
-            ]
-        )
-    }
-    client, fake = make_client(tmp_path, data)
-    client.register(
-        TushareDatasetSpec(
-            name="forecast_vip",
-            connection="ts",
-            api_name="forecast_vip",
-            frequency="q",
-        )
-    )
-
-    panel = client.get_panel(
-        "forecast_vip",
-        fields=["p_change_min"],
-        start="2023-12-31",
-        end="2023-12-31",
-        instruments=None,
-    )["p_change_min"]
-
-    assert list(panel.columns) == ["000004.SZ", "600000.SH"]
-    assert panel.loc[date(2023, 12, 31), "600000.SH"] == pytest.approx(10.0)
-    assert panel.loc[date(2023, 12, 31), "000004.SZ"] == pytest.approx(-20.0)
-    forecast_calls = [params for api_name, params in fake.calls if api_name == "forecast_vip"]
-    assert len(forecast_calls) == 1
-    assert "ts_code" not in forecast_calls[0]
-    assert "f_ann_date" not in str(forecast_calls[0]["fields"]).split(",")
-
-
-def test_forecast_pit_uses_ann_date_without_f_ann_date(tmp_path: Path) -> None:
-    data = {
-        "forecast": forecast_rows(
-            [
-                {
-                    "ts_code": "600000.SH",
-                    "ann_date": "20240426",
-                    "end_date": "20240331",
-                    "type": "increase",
-                    "p_change_min": 10.0,
-                    "first_ann_date": "20240420",
-                }
-            ]
-        )
-    }
-    client, fake = make_client(tmp_path, data)
-    register_pit(
-        client,
-        name="forecast_pit",
-        api_name="forecast",
-        time_column="end_date",
-        disclosure_lag=1,
-    )
-
-    panel = client.get_panel(
-        "forecast_pit",
-        fields=["p_change_min"],
-        start="2024-04-25",
-        end="2024-05-03",
-        instruments=["600000.SH"],
-    )["p_change_min"]
-
-    assert pd.isna(panel.loc[pd.Timestamp("2024-04-26"), "600000.SH"])
-    assert panel.loc[pd.Timestamp("2024-04-29"), "600000.SH"] == pytest.approx(10.0)
-    forecast_calls = [params for api_name, params in fake.calls if api_name == "forecast"]
-    assert len(forecast_calls) == 1
-    fields = str(forecast_calls[0]["fields"]).split(",")
-    assert "ann_date" in fields
-    assert "first_ann_date" in fields
-    assert "f_ann_date" not in fields
-    assert forecast_calls[0]["start_date"] == "20240225"
-    assert forecast_calls[0]["end_date"] == "20240503"
-
-
-def test_same_day_multi_period_keeps_latest_period(tmp_path: Path) -> None:
+def test_active_period_revision_updates_state(tmp_path: Path) -> None:
     data = {
         "income": income_rows(
             [
                 {
                     "ts_code": "600000.SH",
-                    "ann_date": "20240426",
-                    "f_ann_date": "20240426",
-                    "end_date": "20231231",  # prior year annual
-                    "update_flag": 0,
-                    "total_revenue": 1.0,
+                    "ann_date": "20240422",
+                    "f_ann_date": "20240422",
+                    "end_date": "20240331",
+                    "total_revenue": 2.0,
                 },
                 {
                     "ts_code": "600000.SH",
-                    "ann_date": "20240426",
-                    "f_ann_date": "20240426",
-                    "end_date": "20240331",  # Q1, later period
-                    "update_flag": 0,
-                    "total_revenue": 2.0,
+                    "ann_date": "20240430",
+                    "f_ann_date": "20240430",
+                    "end_date": "20240331",
+                    "update_flag": 1,
+                    "total_revenue": 3.0,
                 },
             ]
         )
     }
-    client, _ = make_client(tmp_path, data)
-    register_pit(client)
+    client, _, _ = make_client(tmp_path, data)
+    register_income(client)
+
     panel = client.get_panel(
-        "income_pit",
-        fields=["total_revenue"],
-        start="2024-04-25",
-        end="2024-05-03",
+        "income",
+        ["total_revenue"],
+        start="2024-04-22",
+        end="2024-05-01",
         instruments=["600000.SH"],
     )["total_revenue"]
-    # Both disclosed the same day; the latest report period (Q1) wins.
+
     assert panel.loc[pd.Timestamp("2024-04-29"), "600000.SH"] == pytest.approx(2.0)
+    assert panel.loc[pd.Timestamp("2024-04-30"), "600000.SH"] == pytest.approx(3.0)
 
 
-def test_vip_point_in_time_supports_whole_market(tmp_path: Path) -> None:
+def test_new_report_explicit_null_is_not_field_level_filled(tmp_path: Path) -> None:
+    data = {
+        "income": income_rows(
+            [
+                {
+                    "ts_code": "600000.SH",
+                    "ann_date": "20240410",
+                    "f_ann_date": "20240410",
+                    "end_date": "20231231",
+                    "total_revenue": 5.0,
+                },
+                {
+                    "ts_code": "600000.SH",
+                    "ann_date": "20240422",
+                    "f_ann_date": "20240422",
+                    "end_date": "20240331",
+                    "total_revenue": None,
+                },
+            ]
+        )
+    }
+    client, _, _ = make_client(tmp_path, data)
+    register_income(client)
+
+    panel = client.get_panel(
+        "income",
+        ["total_revenue"],
+        start="2024-04-19",
+        end="2024-04-24",
+        instruments=["600000.SH"],
+    )["total_revenue"]
+
+    assert panel.loc[pd.Timestamp("2024-04-19"), "600000.SH"] == pytest.approx(5.0)
+    assert pd.isna(panel.loc[pd.Timestamp("2024-04-22"), "600000.SH"])
+    assert pd.isna(panel.loc[pd.Timestamp("2024-04-24"), "600000.SH"])
+
+
+def test_conflicting_equally_ranked_revisions_are_rejected(tmp_path: Path) -> None:
+    row = {
+        "ts_code": "600000.SH",
+        "ann_date": "20240422",
+        "f_ann_date": "20240422",
+        "end_date": "20240331",
+    }
+    data = {
+        "income": income_rows(
+            [
+                {**row, "total_revenue": 2.0},
+                {**row, "total_revenue": 3.0},
+            ]
+        )
+    }
+    client, _, _ = make_client(tmp_path, data)
+    register_income(client)
+
+    with pytest.raises(SchemaMismatchError, match="conflicting equally ranked"):
+        client.get_panel(
+            "income",
+            ["total_revenue"],
+            start="2024-04-22",
+            end="2024-04-24",
+            instruments=["600000.SH"],
+        )
+
+
+def test_whole_market_panel_uses_vip_route(tmp_path: Path) -> None:
     data = {
         "income_vip": income_rows(
             [
                 {
                     "ts_code": "600000.SH",
-                    "ann_date": "20240426",
-                    "f_ann_date": "20240426",
+                    "ann_date": "20240422",
+                    "f_ann_date": "20240422",
                     "end_date": "20240331",
-                    "update_flag": 0,
-                    "total_revenue": 5.0,
+                    "total_revenue": 2.0,
                 },
                 {
                     "ts_code": "000004.SZ",
-                    "ann_date": "20240426",
-                    "f_ann_date": "20240426",
+                    "ann_date": "20240422",
+                    "f_ann_date": "20240422",
                     "end_date": "20240331",
-                    "update_flag": 0,
-                    "total_revenue": 8.0,
+                    "total_revenue": 3.0,
                 },
             ]
         )
     }
-    client, fake = make_client(tmp_path, data)
-    register_pit(client, name="vip_pit", api_name="income_vip")
+    client, fake, _ = make_client(tmp_path, data)
+    register_income(client)
+
     panel = client.get_panel(
-        "vip_pit",
-        fields=["total_revenue"],
-        start="2024-04-25",
-        end="2024-05-10",
+        "income",
+        ["total_revenue"],
+        start="2024-04-22",
+        end="2024-04-24",
         instruments=None,
     )["total_revenue"]
+
     assert list(panel.columns) == ["000004.SZ", "600000.SH"]
-    assert panel.loc[pd.Timestamp("2024-04-29"), "600000.SH"] == pytest.approx(5.0)
-    assert panel.loc[pd.Timestamp("2024-04-29"), "000004.SZ"] == pytest.approx(8.0)
-    income_calls = [params for api_name, params in fake.calls if api_name == "income_vip"]
-    assert len(income_calls) == 1
-    assert "ts_code" not in income_calls[0]
+    assert panel.loc[pd.Timestamp("2024-04-22"), "000004.SZ"] == pytest.approx(3.0)
+    data_calls = [(api, params) for api, params in fake.calls if api != "trade_cal"]
+    assert [api for api, _ in data_calls] == ["income_vip"]
+    assert "ts_code" not in data_calls[0][1]
+    audit_path = next((tmp_path / "audit").rglob("*.json"))
+    audit = json.loads(audit_path.read_text())
+    assert audit["calendar_aligned"] is True
+    assert audit["source"]["selected_api"] == "income_vip"
+    assert audit["source"]["calendar_api"] == "trade_cal"
 
 
-def test_non_vip_point_in_time_requires_instruments(tmp_path: Path) -> None:
-    client, _ = make_client(tmp_path, {"income": income_rows([])})
-    register_pit(client)
-    with pytest.raises(InvalidQueryError, match="requires instruments"):
-        client.get_panel(
-            "income_pit",
-            fields=["total_revenue"],
-            start="2024-04-25",
-            end="2024-05-10",
-            instruments=None,
+def test_fina_indicator_catalog_uses_ann_date(tmp_path: Path) -> None:
+    data = {
+        "fina_indicator": indicator_rows(
+            [
+                {
+                    "ts_code": "600000.SH",
+                    "ann_date": "20240426",
+                    "end_date": "20240331",
+                    "roe": 10.5,
+                }
+            ]
         )
+    }
+    client, fake, _ = make_client(tmp_path, data)
+    client.register(TushareDatasetSpec(name="fina_indicator", connection="ts"))
+
+    panel = client.get_panel(
+        "fina_indicator",
+        ["roe"],
+        start="2024-04-25",
+        end="2024-04-29",
+        instruments=["600000.SH"],
+    )["roe"]
+
+    assert panel.loc[pd.Timestamp("2024-04-26"), "600000.SH"] == pytest.approx(10.5)
+    params = next(params for api, params in fake.calls if api == "fina_indicator")
+    assert "ann_date" in str(params["fields"]).split(",")
+    assert "f_ann_date" not in str(params["fields"]).split(",")
 
 
-def test_point_in_time_requires_both_start_and_end(tmp_path: Path) -> None:
-    client, _ = make_client(tmp_path, {"income": income_rows([])})
-    register_pit(client)
-    with pytest.raises(InvalidQueryError):
+def test_disclosure_panel_requires_closed_range(tmp_path: Path) -> None:
+    client, _, _ = make_client(tmp_path, {"income": income_rows([])})
+    register_income(client)
+
+    with pytest.raises(InvalidQueryError, match="requires both start and end"):
         client.get_panel(
-            "income_pit",
-            fields=["total_revenue"],
+            "income",
+            ["total_revenue"],
             start="2024-04-25",
             instruments=["600000.SH"],
         )
+
+
+def test_event_dataset_is_lossless_table_only(tmp_path: Path) -> None:
+    trades = pd.DataFrame(
+        [
+            {
+                "ts_code": "600000.SH",
+                "ann_date": "20240422",
+                "holder_name": "Alice",
+                "holder_type": "G",
+                "in_de": "IN",
+                "begin_date": "20240401",
+                "close_date": "20240420",
+                "change_vol": 100.0,
+            },
+            {
+                "ts_code": "600000.SH",
+                "ann_date": "20240422",
+                "holder_name": "Bob",
+                "holder_type": "P",
+                "in_de": "DE",
+                "begin_date": "20240402",
+                "close_date": "20240420",
+                "change_vol": 50.0,
+            },
+        ]
+    )
+    client, fake, _ = make_client(tmp_path, {"stk_holdertrade": trades})
+    client.register(TushareDatasetSpec(name="stk_holdertrade", connection="ts"))
+
+    table = client.get_table(
+        "stk_holdertrade",
+        ["change_vol"],
+        start="2024-04-20",
+        end="2024-04-23",
+        instruments=["600000.SH"],
+    )
+
+    assert table.num_rows == 2
+    assert table.column_names == [
+        "ann_date",
+        "ts_code",
+        "holder_name",
+        "holder_type",
+        "in_de",
+        "begin_date",
+        "close_date",
+        "change_vol",
+    ]
+    data_call_count = len([api for api, _ in fake.calls if api == "stk_holdertrade"])
+    with pytest.raises(InvalidQueryError, match="cannot be pivoted"):
+        client.get_panel(
+            "stk_holdertrade",
+            ["change_vol"],
+            start="2024-04-20",
+            end="2024-04-23",
+            instruments=["600000.SH"],
+        )
+    assert len([api for api, _ in fake.calls if api == "stk_holdertrade"]) == data_call_count

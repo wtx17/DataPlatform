@@ -24,7 +24,12 @@ if str(ROOT.parent) not in sys.path:
 
 import quant_data  # noqa: E402
 from quant_data.backends.clickhouse_catalog import MINGHU_TABLE_COLUMN_TYPES  # noqa: E402
-from quant_data.backends.tushare import _TUSHARE_TABLES  # noqa: E402
+from quant_data.backends.tushare import _TUSHARE_DATASETS  # noqa: E402
+from quant_data.backends.tushare_catalog import (  # noqa: E402
+    DisclosureSemantics,
+    EventSemantics,
+    MembershipSemantics,
+)
 from quant_data.initialize import (  # noqa: E402
     clickhouse_dataset_specs,
     tushare_dataset_specs,
@@ -41,6 +46,7 @@ INITIALIZATION_API = (
 
 EXTENSION_API = (
     "quant_data.models.RegisteredDataset",
+    "quant_data.models.DatasetContract",
     "quant_data.models.PriceAdjustment",
     "quant_data.models.DataQuery",
     "quant_data.models.QueryAudit",
@@ -49,7 +55,15 @@ EXTENSION_API = (
     "quant_data.backends.ClickHouseBackend",
     "quant_data.backends.TushareBackend",
     "quant_data.backends.clickhouse.ClickHouseSource",
-    "quant_data.backends.tushare.TushareTableCatalog",
+    "quant_data.backends.tushare_catalog.TushareDatasetCatalog",
+    "quant_data.backends.tushare_catalog.TushareApiRoute",
+    "quant_data.backends.tushare_catalog.DisclosureSemantics",
+    "quant_data.backends.tushare_catalog.MembershipSemantics",
+    "quant_data.backends.tushare_catalog.EventSemantics",
+    "quant_data.backends.tushare_catalog.PeriodQuery",
+    "quant_data.backends.tushare_catalog.DateRangeQuery",
+    "quant_data.backends.tushare_catalog.UnboundedQuery",
+    "quant_data.backends.tushare_catalog.MembershipQuery",
     "quant_data.backends.tushare.TushareSource",
     "quant_data.transforms.build_panels",
     "quant_data.transforms.build_daily_panels",
@@ -108,14 +122,13 @@ class FieldFamily:
     sources: list[str] = field(default_factory=list)
     time_keys: set[str] = field(default_factory=set)
     instrument_keys: set[str] = field(default_factory=set)
+    identity_columns: set[str] = field(default_factory=set)
 
 
-def _tushare_family(api_name: str) -> str:
-    if api_name in {"ci_index_member", "index_member_all"}:
+def _tushare_family(dataset_name: str) -> str:
+    if dataset_name in {"ci_index_member", "index_member_all"}:
         return "industry_member"
-    if api_name.endswith("_vip"):
-        return api_name.removesuffix("_vip")
-    return api_name
+    return dataset_name
 
 
 def _append_unique(values: list[str], value: str) -> None:
@@ -144,20 +157,20 @@ def collect_families() -> dict[str, FieldFamily]:
         )
         families[family.name] = family
 
-    for tushare_spec in tushare_dataset_specs(include_pit=True):
-        catalog = _TUSHARE_TABLES.get(tushare_spec.api_name)
+    for tushare_spec in tushare_dataset_specs():
+        dataset_name = tushare_spec.dataset or tushare_spec.name
+        catalog = _TUSHARE_DATASETS.get(dataset_name)
         if catalog is None:
             raise SyncError(
-                f"Default Tushare API {tushare_spec.api_name!r} has no local catalog"
+                f"Default Tushare dataset {dataset_name!r} has no local catalog"
             )
-        family_name = _tushare_family(tushare_spec.api_name)
+        family_name = _tushare_family(dataset_name)
         fields = tuple((item.name, str(item.type)) for item in catalog.schema)
-        time_column = (
-            catalog.default_time_column
-            if catalog.default_time_column is not None
-            and tushare_spec.time_column == "end_date"
-            else tushare_spec.time_column
-        )
+        semantics = catalog.semantics
+        if isinstance(semantics, DisclosureSemantics):
+            time_column = semantics.period_column
+        else:
+            time_column = semantics.table_time_column
         existing = families.get(family_name)
         if existing is None:
             existing = FieldFamily(family_name, "Tushare", fields)
@@ -167,9 +180,11 @@ def collect_families() -> dict[str, FieldFamily]:
                 f"Tushare schema family {family_name!r} has inconsistent field definitions"
             )
         _append_unique(existing.datasets, tushare_spec.name)
-        _append_unique(existing.sources, tushare_spec.api_name)
+        for route in catalog.routes:
+            _append_unique(existing.sources, route.api_name)
         existing.time_keys.add(time_column)
-        existing.instrument_keys.add(tushare_spec.instrument_column)
+        existing.instrument_keys.add(catalog.instrument_column)
+        existing.identity_columns.update(semantics.identity_columns)
     return families
 
 
@@ -273,26 +288,6 @@ def render_api_index() -> str:
     return "\n".join(lines)
 
 
-def _normalized_tushare_values(spec: Any, catalog: Any) -> tuple[str, bool, bool]:
-    time_column = (
-        catalog.default_time_column
-        if catalog.default_time_column is not None and spec.time_column == "end_date"
-        else spec.time_column
-    )
-    requires_range = bool(
-        spec.panel_mode == "pit_daily"
-        or spec.point_in_time
-        or catalog.requires_time_range
-        or spec.require_time_range
-    )
-    panel_compatible = (
-        catalog.panel_compatible
-        if catalog.panel_compatible is not None
-        else spec.panel_compatible
-    )
-    return time_column, requires_range, panel_compatible
-
-
 def _escape_cell(value: object) -> str:
     return str(value).replace("|", "\\|").replace("\n", " ")
 
@@ -330,32 +325,51 @@ def render_capability_matrix() -> str:
             ]
         )
 
-    for tushare_spec in tushare_dataset_specs(include_pit=True):
-        catalog = _TUSHARE_TABLES[tushare_spec.api_name]
-        time_column, requires_range, panel_compatible = (
-            _normalized_tushare_values(tushare_spec, catalog)
+    for tushare_spec in tushare_dataset_specs():
+        dataset_name = tushare_spec.dataset or tushare_spec.name
+        catalog = _TUSHARE_DATASETS[dataset_name]
+        catalog_semantics = catalog.semantics
+        has_split_routes = {route.universe for route in catalog.routes} == {
+            "instrument_only",
+            "whole_market",
+        }
+        universe = (
+            "可选；列表走普通 API，`None` 走 VIP"
+            if has_split_routes
+            else "可选；`None` 为全市场"
         )
-        if catalog.requires_instrument:
-            universe = "必须"
-        else:
-            universe = "可选；`None` 为全市场"
-        if tushare_spec.panel_mode == "pit_daily" or tushare_spec.point_in_time:
-            semantics = "PIT 日频；公告对齐、延迟、去重、前向填充"
-        elif catalog.query_style == "membership_interval":
-            semantics = "成员区间按交易日展开"
-        elif not panel_compatible:
+        if isinstance(catalog_semantics, DisclosureSemantics):
+            time_column = (
+                f"表 `{catalog_semantics.period_column}`；"
+                f"宽表 `{catalog_semantics.panel_time_column}`"
+            )
+            range_label = "表可选；宽表必须"
+            panel_compatible = True
+            semantics = "原始修订长表；宽表自动按交易日构建 PIT 状态"
+        elif isinstance(catalog_semantics, MembershipSemantics):
+            time_column = (
+                f"表 `{catalog_semantics.table_time_column}`；"
+                f"宽表 `{catalog_semantics.panel_time_column}`"
+            )
+            range_label = "必须"
+            panel_compatible = True
+            semantics = "表返回成员区间；宽表才按交易日展开"
+        elif isinstance(catalog_semantics, EventSemantics):
+            time_column = catalog_semantics.table_time_column
+            range_label = "必须"
+            panel_compatible = False
             semantics = "事件长表"
-        elif catalog.query_style == "period_range":
-            semantics = "报告期查询并按 catalog 规则去重"
-        else:
-            semantics = "普通日期查询"
+        else:  # pragma: no cover - exhaustive catalog guard
+            raise SyncError(f"Unknown Tushare semantics for {dataset_name!r}")
         rows.append(
             [
                 tushare_spec.name,
-                f"Tushare `{tushare_spec.api_name}`",
+                "Tushare " + ", ".join(
+                    f"`{route.api_name}`" for route in catalog.routes
+                ),
                 time_column,
-                tushare_spec.instrument_column,
-                "必须" if requires_range else "可选",
+                catalog.instrument_column,
+                range_label,
                 universe,
                 "是" if panel_compatible else "否",
                 semantics,
@@ -368,7 +382,7 @@ def render_capability_matrix() -> str:
         "# 默认数据集能力矩阵",
         "",
         "本页直接读取初始化规格和本地后端 catalog；生成过程不会创建远程客户端或读取凭证。",
-        "时间范围均为闭区间。PIT 行的面板语义只影响 `get_panel()`；`get_table()` 仍执行普通查询。",
+        "时间范围均为闭区间。披露数据的 `get_panel()` 自动执行 PIT；`get_table()` 保留公告和修订记录。",
         "",
         "| 数据集 | 来源 | 时间键 | 证券键 | 时间范围 | 股票池 | 宽表 | 语义 |",
         "| --- | --- | --- | --- | --- | --- | --- | --- |",
@@ -408,8 +422,8 @@ def render_field_reference(
         "# 字段手册",
         "",
         "字段名和类型来自 ClickHouse/Tushare 本地 catalog；说明来自经同步脚本校验的",
-        "`field_notes.toml`。普通、VIP 与 PIT 变体按 schema 家族共用字段表。",
-        "“自动键列”由查询结果自动返回，不应再次写入 `fields`。",
+        "`field_notes.toml`。普通与 VIP 只是同一逻辑数据集的远程路由，共用字段表。",
+        "表键与表身份列由 `get_table()` 自动返回；身份列仍可作为 `get_panel()` 的值字段。",
         "",
     ]
     for name, family in families.items():
@@ -430,7 +444,12 @@ def render_field_reference(
         )
         keys = family.time_keys | family.instrument_keys
         for field_name, field_type in family.fields:
-            role = "自动键列" if field_name in keys else "可请求字段"
+            if field_name in keys:
+                role = "自动键列"
+            elif field_name in family.identity_columns:
+                role = "表自动身份列"
+            else:
+                role = "可请求字段"
             description = _description_for(name, field_name, notes)
             lines.append(
                 "| "

@@ -22,6 +22,7 @@ from ..models import (
     ClickHouseConfig,
     ClickHouseDatasetSpec,
     DataQuery,
+    DatasetContract,
     DatasetDefinition,
     PriceAdjustment,
     RegisteredDataset,
@@ -208,7 +209,34 @@ class ClickHouseBackend:
                     field for field in _MINGHU_DAILY_PRICE_FIELDS if field in column_types
                 ),
             )
-        return RegisteredDataset(definition, schema, source, adjustment)
+        requires_time_range = bool(
+            definition.require_time_range is True
+            or (
+                definition.require_time_range is None
+                and definition.partition_column is not None
+            )
+        )
+        contract = DatasetContract(
+            table_time_column=definition.time_column,
+            instrument_column=definition.instrument_column,
+            table_frequency=definition.frequency,
+            panel_time_column=(
+                definition.time_column if definition.panel_compatible else None
+            ),
+            panel_frequency=(definition.frequency if definition.panel_compatible else None),
+            timezone=definition.timezone,
+            version=definition.version,
+            panel_compatible=definition.panel_compatible,
+            table_requires_time_range=requires_time_range,
+            panel_requires_time_range=requires_time_range,
+        )
+        return RegisteredDataset(
+            spec=definition,
+            schema=schema,
+            source=source,
+            contract=contract,
+            adjustment=adjustment,
+        )
 
     def scan(self, dataset: RegisteredDataset, query: DataQuery) -> pa.Table:
         """Run a parameterized ClickHouse query.

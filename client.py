@@ -224,9 +224,9 @@ class DataClient:
         Notes
         -----
         Query bounds are closed. Requested instruments without observations
-        remain as all-missing columns. Tushare ``pit_daily`` datasets align
-        disclosures to a trading calendar and forward-fill only after their
-        configured availability lag.
+        remain as all-missing columns. Disclosed Tushare datasets always align
+        announcements to a trading calendar, apply their availability lag,
+        and carry whole-row point-in-time state.
         """
 
         result = self._execute(
@@ -286,9 +286,10 @@ class DataClient:
 
         Notes
         -----
-        Event tables may contain repeated time/instrument pairs and should be
-        queried with this method. ``panel_mode`` affects only :meth:`get_panel`;
-        this method retains the ordinary Tushare period-query semantics.
+        Event and revision tables may contain repeated time/instrument pairs
+        and should be queried with this method. Tushare disclosure tables are
+        filtered by report period and retain all announcement/revision rows;
+        membership tables retain their effective-dated intervals.
         """
 
         result = self._execute(
@@ -353,71 +354,86 @@ class DataClient:
             if registered is None:
                 raise DatasetNotFoundError(f"Dataset {dataset!r} is not registered")
             spec = registered.spec
+            contract = registered.contract
             backend = self._backends[spec.backend]
-            record.frequency = spec.frequency
-            record.dataset_version = spec.version
+            record.frequency = (
+                contract.panel_frequency
+                if mode == "panel"
+                else contract.table_frequency
+            )
+            record.dataset_version = contract.version
             record.source = backend.fingerprint(registered)
 
-            if mode == "panel" and isinstance(
-                spec, (ClickHouseDatasetSpec, TushareDatasetSpec)
-            ):
-                if not spec.panel_compatible:
-                    raise InvalidQueryError(
-                        f"Dataset {dataset!r} is event data and cannot be pivoted; use get_table"
-                    )
-            query = self._prepare_query(registered, fields, start, end, instruments, limit)
+            if mode == "panel" and not contract.panel_compatible:
+                raise InvalidQueryError(
+                    f"Dataset {dataset!r} is event data and cannot be pivoted; use get_table"
+                )
+            query = self._prepare_query(
+                mode, registered, fields, start, end, instruments, limit
+            )
+            if isinstance(spec, TushareDatasetSpec):
+                data_api = self._tushare.route_name(registered, query)
+                record.parameters["data_api"] = data_api
+                record.source["selected_api"] = data_api
             apply_adjustment = self._resolve_adjustment(registered, adjusted)
             record.adjusted = apply_adjustment
             record.parameters["adjusted"] = apply_adjustment
             scan_query = self._with_adjustment_factor(registered, query, apply_adjustment)
-            if mode == "panel" and self._uses_tushare_pit_panel(registered):
-                result = self._build_tushare_pit_panels(
+            tushare_panel_kind = (
+                self._tushare.panel_kind(registered)
+                if mode == "panel" and isinstance(spec, TushareDatasetSpec)
+                else None
+            )
+            if tushare_panel_kind == "disclosure":
+                result = self._build_tushare_disclosure_panels(
+                    dataset, registered, scan_query, record
+                )
+            elif tushare_panel_kind == "membership":
+                table = self._tushare.scan_membership_panel(registered, scan_query)
+                record.calendar_aligned = True
+                record.parameters["calendar_api"] = "trade_cal"
+                record.source["calendar_api"] = "trade_cal"
+                result = self._build_panels(
+                    table,
                     dataset,
                     registered,
-                    scan_query,
+                    query,
                     record,
-                    apply_adjustment,
+                    apply_adjustment=False,
                 )
             else:
                 if scan_query.instruments == ():
-                    table = self._empty_table(registered, scan_query.fields)
+                    table = self._empty_table(registered, scan_query.fields, mode)
                 else:
                     table = backend.scan(registered, scan_query)
-                self._validate_table_keys(table, registered)
+                time_column, instrument_column = self._mode_keys(registered, mode)
+                self._validate_table_keys(
+                    table,
+                    registered,
+                    time_column=time_column,
+                    instrument_column=instrument_column,
+                )
                 if apply_adjustment:
                     table = self._adjust_prices(table, registered)
-                table = table.select(
-                    [spec.time_column, spec.instrument_column, *query.fields]
-                )
 
                 if mode == "table":
+                    table = table.select(self._table_columns(registered, query.fields))
                     result = self._attach_table_metadata(
                         table, query_id, dataset, record.parameters
                     )
                     record.result_shapes = {"table": [result.num_rows, result.num_columns]}
                 else:
-                    result = build_panels(
-                        table,
-                        dataset_name=dataset,
-                        time_column=spec.time_column,
-                        instrument_column=spec.instrument_column,
-                        fields=query.fields,
-                        instruments=query.instruments,
+                    table = table.select(
+                        [time_column, instrument_column, *query.fields]
                     )
-                    attrs = {
-                        "query_id": query_id,
-                        "dataset": dataset,
-                        "frequency": spec.frequency,
-                        "version": spec.version,
-                        "parameters": record.parameters,
-                        "adjusted": apply_adjustment,
-                    }
-                    for panel in result.values():
-                        panel.attrs.update(attrs)
-                    record.result_shapes = {
-                        field: [int(panel.shape[0]), int(panel.shape[1])]
-                        for field, panel in result.items()
-                    }
+                    result = self._build_panels(
+                        table,
+                        dataset,
+                        registered,
+                        query,
+                        record,
+                        apply_adjustment,
+                    )
             record.status = "success"
         except Exception as exc:
             record.status = "failed"
@@ -430,40 +446,38 @@ class DataClient:
         self._audit.write(record)
         return result
 
-    @staticmethod
-    def _uses_tushare_pit_panel(dataset: RegisteredDataset) -> bool:
-        spec = dataset.spec
-        return isinstance(spec, TushareDatasetSpec) and (
-            spec.panel_mode == "pit_daily" or spec.point_in_time
-        )
-
-    def _build_tushare_pit_panels(
+    def _build_tushare_disclosure_panels(
         self,
         dataset_name: str,
         dataset: RegisteredDataset,
         query: DataQuery,
         record: QueryAudit,
-        apply_adjustment: bool,
     ) -> dict[str, pd.DataFrame]:
         spec = dataset.spec
         if not isinstance(spec, TushareDatasetSpec):
             raise SchemaMismatchError("PIT panels require a Tushare dataset")
         if query.start is None or query.end is None:
             raise InvalidQueryError(
-                f"Dataset {dataset_name!r} pit_daily panel requires both start and end"
+                f"Dataset {dataset_name!r} PIT panel requires both start and end"
             )
-        if apply_adjustment:
-            raise InvalidQueryError("pit_daily panels do not support price adjustment")
 
         table = self._tushare.scan_disclosure_events(dataset, query)
-        self._validate_table_keys(table, dataset)
-        disclosure_column, period_column = self._tushare.pit_panel_columns(dataset)
+        contract = dataset.contract
+        self._validate_table_keys(
+            table,
+            dataset,
+            time_column=contract.table_time_column,
+            instrument_column=contract.instrument_column,
+        )
+        disclosure_column, period_column, revision_order = (
+            self._tushare.pit_panel_semantics(dataset)
+        )
         calendar = self._tushare.trade_calendar(dataset, query)
         panels = build_daily_panels(
             table,
             dataset_name=dataset_name,
             disclosure_column=disclosure_column,
-            instrument_column=spec.instrument_column,
+            instrument_column=contract.instrument_column,
             period_column=period_column,
             fields=query.fields,
             instruments=query.instruments,
@@ -471,19 +485,63 @@ class DataClient:
             panel_start=pd.Timestamp(query.start.date()),
             panel_end=pd.Timestamp(query.end.date()),
             disclosure_lag=spec.disclosure_lag,
+            revision_order=revision_order,
+            index_name=contract.panel_time_column or "trade_date",
         )
         record.calendar_aligned = True
-        record.parameters["panel_mode"] = "pit_daily"
         record.parameters["disclosure_lag"] = spec.disclosure_lag
+        record.parameters["calendar_api"] = "trade_cal"
+        record.source["calendar_api"] = "trade_cal"
+        self._finish_panels(
+            panels, dataset_name, dataset, record, apply_adjustment=False
+        )
+        return panels
+
+    def _build_panels(
+        self,
+        table: pa.Table,
+        dataset_name: str,
+        dataset: RegisteredDataset,
+        query: DataQuery,
+        record: QueryAudit,
+        apply_adjustment: bool,
+    ) -> dict[str, pd.DataFrame]:
+        time_column, instrument_column = self._mode_keys(dataset, "panel")
+        self._validate_table_keys(
+            table,
+            dataset,
+            time_column=time_column,
+            instrument_column=instrument_column,
+        )
+        panels = build_panels(
+            table,
+            dataset_name=dataset_name,
+            time_column=time_column,
+            instrument_column=instrument_column,
+            fields=query.fields,
+            instruments=query.instruments,
+        )
+        self._finish_panels(
+            panels, dataset_name, dataset, record, apply_adjustment
+        )
+        return panels
+
+    @staticmethod
+    def _finish_panels(
+        panels: dict[str, pd.DataFrame],
+        dataset_name: str,
+        dataset: RegisteredDataset,
+        record: QueryAudit,
+        apply_adjustment: bool,
+    ) -> None:
         attrs = {
             "query_id": record.query_id,
             "dataset": dataset_name,
-            "frequency": spec.frequency,
-            "version": spec.version,
+            "frequency": dataset.contract.panel_frequency,
+            "version": dataset.contract.version,
             "parameters": record.parameters,
-            "adjusted": False,
-            "panel_mode": "pit_daily",
-            "disclosure_lag": spec.disclosure_lag,
+            "adjusted": apply_adjustment,
+            "calendar_aligned": record.calendar_aligned,
         }
         for panel in panels.values():
             panel.attrs.update(attrs)
@@ -491,7 +549,6 @@ class DataClient:
             field: [int(panel.shape[0]), int(panel.shape[1])]
             for field, panel in panels.items()
         }
-        return panels
 
     @staticmethod
     def _resolve_adjustment(dataset: RegisteredDataset, adjusted: bool | None) -> bool:
@@ -539,7 +596,7 @@ class DataClient:
         spec = dataset.spec
         return (
             isinstance(spec, ClickHouseDatasetSpec)
-            and spec.instrument_column == "code"
+            and dataset.contract.instrument_column == "code"
             and "exg" in dataset.schema.names
         )
 
@@ -551,22 +608,40 @@ class DataClient:
     def _validate_spec(spec: DatasetDefinition) -> None:
         if not spec.name.strip():
             raise DatasetRegistrationError("Dataset name cannot be empty")
-        if not spec.time_column or not spec.instrument_column:
-            raise DatasetRegistrationError("Key column names cannot be empty")
-        if spec.time_column == spec.instrument_column:
-            raise DatasetRegistrationError("Time and instrument columns must be different")
-        if isinstance(spec, DatasetSpec) and not spec.paths:
-            raise DatasetRegistrationError("Dataset paths cannot be empty")
-        if isinstance(spec, TushareDatasetSpec):
-            if spec.panel_mode not in {"period", "pit_daily"}:
+        if isinstance(spec, (DatasetSpec, ClickHouseDatasetSpec)):
+            if not spec.time_column or not spec.instrument_column:
+                raise DatasetRegistrationError("Key column names cannot be empty")
+            if spec.time_column == spec.instrument_column:
                 raise DatasetRegistrationError(
-                    f"Unsupported Tushare panel_mode: {spec.panel_mode!r}"
+                    "Time and instrument columns must be different"
                 )
-            if spec.disclosure_lag < 0:
+        if isinstance(spec, DatasetSpec):
+            if not spec.paths:
+                raise DatasetRegistrationError("Dataset paths cannot be empty")
+        if isinstance(spec, TushareDatasetSpec):
+            if spec.dataset is not None and not spec.dataset.strip():
+                raise DatasetRegistrationError("Tushare dataset cannot be empty")
+            if not spec.calendar_exchange.strip():
+                raise DatasetRegistrationError(
+                    "Tushare calendar_exchange cannot be empty"
+                )
+            if (
+                isinstance(spec.disclosure_lag, bool)
+                or not isinstance(spec.disclosure_lag, int)
+                or spec.disclosure_lag < 0
+            ):
                 raise DatasetRegistrationError("disclosure_lag must be non-negative")
-            if spec.fetch_buffer_days < 0:
+            if (
+                isinstance(spec.fetch_buffer_days, bool)
+                or not isinstance(spec.fetch_buffer_days, int)
+                or spec.fetch_buffer_days < 0
+            ):
                 raise DatasetRegistrationError("fetch_buffer_days must be non-negative")
-            if spec.fetch_margin_days < 0:
+            if (
+                isinstance(spec.fetch_margin_days, bool)
+                or not isinstance(spec.fetch_margin_days, int)
+                or spec.fetch_margin_days < 0
+            ):
                 raise DatasetRegistrationError("fetch_margin_days must be non-negative")
         if spec.timezone:
             try:
@@ -576,6 +651,7 @@ class DataClient:
 
     @staticmethod
     def _prepare_query(
+        mode: QueryMode,
         dataset: RegisteredDataset,
         fields: Sequence[str],
         start: Any | None,
@@ -590,7 +666,8 @@ class DataClient:
             raise InvalidQueryError("Field names must be non-empty strings")
         if len(set(requested_fields)) != len(requested_fields):
             raise InvalidQueryError("Fields cannot contain duplicates")
-        keys = {dataset.spec.time_column, dataset.spec.instrument_column}
+        time_column, instrument_column = DataClient._mode_keys(dataset, mode)
+        keys = {time_column, instrument_column}
         invalid_keys = keys.intersection(requested_fields)
         if invalid_keys:
             raise InvalidQueryError(f"Key columns cannot be requested as fields: {invalid_keys}")
@@ -598,20 +675,23 @@ class DataClient:
         if missing:
             raise FieldNotFoundError(f"Fields not found in dataset: {sorted(missing)}")
 
-        localize = isinstance(dataset.spec, (ClickHouseDatasetSpec, TushareDatasetSpec))
-        parsed_start = DataClient._parse_time(
-            start, "start", dataset.spec.timezone if localize else None
+        query_timezone = (
+            None if isinstance(dataset.spec, DatasetSpec) else dataset.contract.timezone
         )
-        parsed_end = DataClient._parse_time(
-            end, "end", dataset.spec.timezone if localize else None
-        )
+        parsed_start = DataClient._parse_time(start, "start", query_timezone)
+        parsed_end = DataClient._parse_time(end, "end", query_timezone)
         if parsed_start is not None and parsed_end is not None and parsed_start > parsed_end:
             raise InvalidQueryError("start must be earlier than or equal to end")
-        if DataClient._requires_time_range(dataset.spec) and (
+        requires_range = (
+            dataset.contract.panel_requires_time_range
+            if mode == "panel"
+            else dataset.contract.table_requires_time_range
+        )
+        if requires_range and (
             parsed_start is None or parsed_end is None
         ):
             raise InvalidQueryError(
-                f"Dataset {dataset.spec.name!r} requires both start and end"
+                f"Dataset {dataset.spec.name!r} {mode} query requires both start and end"
             )
 
         requested_instruments: tuple[str, ...] | None = None
@@ -641,17 +721,6 @@ class DataClient:
         )
 
     @staticmethod
-    def _requires_time_range(spec: DatasetDefinition) -> bool:
-        if isinstance(spec, ClickHouseDatasetSpec):
-            return bool(
-                spec.require_time_range is True
-                or (spec.require_time_range is None and spec.partition_column is not None)
-            )
-        if isinstance(spec, TushareDatasetSpec):
-            return bool(spec.require_time_range)
-        return False
-
-    @staticmethod
     def _parse_time(value: Any | None, name: str, timezone_name: str | None) -> datetime | None:
         if value is None:
             return None
@@ -671,27 +740,74 @@ class DataClient:
         return result
 
     @staticmethod
-    def _empty_table(dataset: RegisteredDataset, fields: tuple[str, ...]) -> pa.Table:
-        spec = dataset.spec
-        arrays: dict[str, pa.Array] = {
-            spec.time_column: pa.array([], type=dataset.schema.field(spec.time_column).type),
-            spec.instrument_column: pa.array(
-                [], type=dataset.schema.field(spec.instrument_column).type
-            ),
-        }
-        for field in fields:
-            arrays[field] = pa.array([], type=dataset.schema.field(field).type)
+    def _empty_table(
+        dataset: RegisteredDataset,
+        fields: tuple[str, ...],
+        mode: QueryMode,
+    ) -> pa.Table:
+        time_column, instrument_column = DataClient._mode_keys(dataset, mode)
+        columns = (
+            DataClient._table_columns(dataset, fields)
+            if mode == "table"
+            else (time_column, instrument_column, *fields)
+        )
+        arrays: dict[str, pa.Array] = {}
+        for column in columns:
+            data_type = (
+                dataset.schema.field(column).type
+                if column in dataset.schema.names
+                else pa.date32()
+            )
+            arrays[column] = pa.array([], type=data_type)
         return pa.table(arrays)
 
     @staticmethod
-    def _validate_table_keys(table: pa.Table, dataset: RegisteredDataset) -> None:
-        for column in (dataset.spec.time_column, dataset.spec.instrument_column):
+    def _validate_table_keys(
+        table: pa.Table,
+        dataset: RegisteredDataset,
+        *,
+        time_column: str,
+        instrument_column: str,
+    ) -> None:
+        for column in (time_column, instrument_column):
             if column not in table.column_names:
                 raise SchemaMismatchError(f"Query result is missing key column {column!r}")
             if pc.any(pc.is_null(table[column])).as_py():
                 raise SchemaMismatchError(
                     f"Dataset {dataset.spec.name!r} contains null values in key column {column!r}"
                 )
+
+    @staticmethod
+    def _mode_keys(
+        dataset: RegisteredDataset, mode: QueryMode
+    ) -> tuple[str, str]:
+        contract = dataset.contract
+        time_column = (
+            contract.panel_time_column
+            if mode == "panel"
+            else contract.table_time_column
+        )
+        if time_column is None:
+            raise InvalidQueryError(
+                f"Dataset {dataset.spec.name!r} does not support panel queries"
+            )
+        return time_column, contract.instrument_column
+
+    @staticmethod
+    def _table_columns(
+        dataset: RegisteredDataset, fields: tuple[str, ...]
+    ) -> tuple[str, ...]:
+        contract = dataset.contract
+        result: list[str] = []
+        for column in (
+            contract.table_time_column,
+            contract.instrument_column,
+            *contract.table_identity_columns,
+            *fields,
+        ):
+            if column not in result:
+                result.append(column)
+        return tuple(result)
 
     @staticmethod
     def _attach_table_metadata(

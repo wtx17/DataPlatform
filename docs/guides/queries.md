@@ -9,9 +9,10 @@
 
 - `DatasetSpec`：本地 Parquet 文件、目录或 glob；
 - `ClickHouseDatasetSpec`：连接名与远程表；
-- `TushareDatasetSpec`：连接名、catalog API 与查询语义。
+- `TushareDatasetSpec`：连接名、逻辑 catalog 数据集、固定参数与 PIT 日历参数。
 
-数据集名称、键列不能为空，时间键与证券键不能相同，时区必须是有效 IANA 名称。
+数据集名称不能为空；显式配置键的 Parquet/ClickHouse 规格还要求两个键非空且不同；时区
+必须是有效 IANA 名称。Tushare 的键、频率与方法语义完全由 catalog 提供。
 后端还会检查路径、连接名、远程标识符、catalog 字段和保留参数。
 
 ## `get_panel()`
@@ -50,17 +51,18 @@ table = data.get_table(
 )
 ```
 
-返回 `pyarrow.Table`。时间键和证券键总是排在请求字段之前，调用者不能把键列再写进
-`fields`。长表允许同一时间与证券有多条事件；因此盘口、逐笔、股东增减持必须使用
-这个 API。
+返回 `pyarrow.Table`。时间键和证券键总是排在请求字段之前；后端声明的身份/版本列也会
+自动插在请求字段之前。调用者不能把对应方法的键列再写进 `fields`。长表允许同一时间与
+证券有多条事件或修订；因此盘口、逐笔、股东增减持及财报修订研究应使用这个 API。
 
 `limit` 只能是正整数且只出现在 `get_table()`。后端在排序后应用 limit：Parquet 用
-DuckDB 参数，ClickHouse 用 `UInt64` 参数，Tushare 在规范化、去重和排序后截取。
+DuckDB 参数，ClickHouse 用 `UInt64` 参数，Tushare 在规范化和稳定排序后截取。
 
 ## 时间范围是闭区间
 
-`start` 与 `end` 都包含边界值，可以只传一端；分区表、行业成员、事件表和 PIT 等特定
-数据集会要求两端齐全。
+`start` 与 `end` 都包含边界值，可以只传一端；分区表、行业成员、事件表和 Tushare
+披露数据的宽表等特定查询会要求两端齐全。同一 Tushare 数据集的表与宽表可以有不同时间
+键和范围要求。
 
 ```python
 data.get_panel("daily_bar", ["close"], start="2026-07-01")
@@ -81,7 +83,7 @@ end = "2026-07-31 23:59:59.999999"
 
 | `instruments` | 行为 |
 | --- | --- |
-| `None` | 请求后端允许的全部证券；普通非 VIP 财报接口不允许此值。 |
+| `None` | 请求后端允许的全部证券；Tushare 财报逻辑数据集自动选择 VIP 全市场路由。 |
 | 非空序列 | 过滤数据，并按调用者给出的顺序排列宽表列。 |
 | `[]` | 不扫描后端，返回保留 schema、字段和列语义的空结果。 |
 
@@ -93,7 +95,7 @@ end = "2026-07-31 23:59:59.999999"
 
 ## 字段与空结果
 
-`fields` 至少包含一个非空、唯一字段，并且不能包含配置的两个键列。未知字段在扫描前
+`fields` 至少包含一个非空、唯一字段，并且不能包含当前方法的两个键列。未知字段在扫描前
 抛出 `FieldNotFoundError`。空查询结果仍具有：
 
 - 请求字段对应的字典键；

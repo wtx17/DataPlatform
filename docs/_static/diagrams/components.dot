@@ -20,6 +20,7 @@ digraph QuantDataComponents {
 
   client [label="DataClient"];
   protocol [label="DataBackend\nProtocol", fillcolor="#E8F6F3"];
+  contract [label="RegisteredDataset\nSchema + Contract", fillcolor="#E8F6F3"];
   parquet [label="DuckDB + Parquet"];
   clickhouse [label="ClickHouse"];
   tushare [label="Tushare"];
@@ -28,7 +29,9 @@ digraph QuantDataComponents {
   result [label="Pandas panels\nor Arrow table", fillcolor="#EBDEF0"];
   audit [label="QueryAudit -> JSON", fillcolor="#FADBD8"];
 
-  client -> protocol [label="prepare / scan"];
+  client -> protocol [label="prepare"];
+  protocol -> contract [label="prepared state"];
+  contract -> protocol [label="scan"];
   { rank=same; parquet; clickhouse; tushare; }
   protocol -> parquet;
   protocol -> clickhouse;

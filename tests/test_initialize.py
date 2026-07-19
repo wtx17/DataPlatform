@@ -1,6 +1,15 @@
 from __future__ import annotations
 
-from quant_data.initialize import clickhouse_dataset_specs, registered_dataset_names
+from pathlib import Path
+
+import pytest
+
+from quant_data.initialize import (
+    clickhouse_dataset_specs,
+    initialize_data_client,
+    registered_dataset_names,
+    tushare_dataset_specs,
+)
 
 
 def test_clickhouse_dataset_specs_include_index_daily_and_tk() -> None:
@@ -35,3 +44,34 @@ def test_registered_dataset_names_include_new_minghu_tables() -> None:
     names = registered_dataset_names()
     assert "minghu_index_daily" in names
     assert "minghu_tk" in names
+
+
+def test_tushare_specs_contain_one_entry_per_logical_dataset() -> None:
+    specs = tushare_dataset_specs("research")
+    assert [spec.name for spec in specs] == [
+        "income",
+        "balancesheet",
+        "cashflow",
+        "fina_indicator",
+        "express",
+        "forecast",
+        "stk_holdernumber",
+        "ci_index_member",
+        "index_member_all",
+        "stk_holdertrade",
+    ]
+    assert all(spec.connection == "research" for spec in specs)
+    assert all(spec.dataset is None for spec in specs)
+    assert not any(spec.name.endswith(("_vip", "_pit")) for spec in specs)
+
+
+def test_default_initialization_is_offline(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delenv("TUSHARE_TOKEN", raising=False)
+    monkeypatch.delenv("QUANT_DATA_TUSHARE_TOKEN", raising=False)
+    client = initialize_data_client(audit_dir=tmp_path / "audit")
+    try:
+        assert registered_dataset_names()
+    finally:
+        client.close()

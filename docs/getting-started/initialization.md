@@ -1,7 +1,8 @@
 # 统一初始化
 
 `quant_data.initialize.initialize_data_client()` 集中配置项目默认连接，并按固定顺序注册
-五张明湖表、Tushare 普通/VIP 数据集、行业成员与事件表，以及可选的 PIT 变体。
+五张明湖表，以及十个 Tushare 逻辑数据集。普通/VIP 路由和 PIT 宽表语义不再占用额外
+注册名。
 
 ```python
 from quant_data.initialize import initialize_data_client
@@ -33,10 +34,9 @@ local_plus_catalog = initialize_data_client(
     register_tushare=False,
 )
 
-tushare_without_pit = initialize_data_client(
+tushare_only = initialize_data_client(
     register_clickhouse=False,
     register_tushare=True,
-    register_tushare_pit=False,
 )
 ```
 
@@ -50,8 +50,10 @@ from quant_data.initialize import (
 )
 
 clickhouse_specs = clickhouse_dataset_specs("research")
-tushare_specs = tushare_dataset_specs("ts", include_pit=False)
-names = registered_dataset_names(include_tushare_pit=True)
+tushare_specs = tushare_dataset_specs("ts")
+names = registered_dataset_names()
 ```
+
+这些规格的生成与注册均为离线操作；凭证到第一次查询才解析。
 
 完整默认集合及能力由[自动能力矩阵](../datasets/capabilities.md)列出。

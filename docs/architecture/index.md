@@ -18,8 +18,8 @@ extending
 ```
 
 `DataClient` 根据规格中的 `backend` 选择实现。`RegisteredDataset` 是准备阶段和查询阶段的
-边界：它同时保存规范化规格、完整 Arrow schema、后端私有 source descriptor，以及可选
-复权策略。
+边界：它同时保存规范化规格、完整 Arrow schema、后端私有 source descriptor、方法级
+`DatasetContract`，以及可选复权策略。
 
 ## 普通查询时序
 
@@ -39,8 +39,9 @@ extending
 ```
 
 PIT 的核心不变量是“值只能在可用日及之后出现”。公告日先向后吸附到开市日，再增加
-`disclosure_lag`，绝不向前吸附。左侧缓冲只用于找历史已知值；右侧 margin 只用于完成
-日历定位；最后输出仍严格裁剪到用户闭区间。
+`disclosure_lag`，绝不向前吸附。转换器按证券维护每个报告期的最新整行状态，激活最大已知
+报告期；旧期晚到修订不会覆盖新期，显式 null 也不会被逐字段填充。左侧缓冲只用于找历史
+已知值；右侧 margin 只用于完成日历定位；最后输出仍严格裁剪到用户闭区间。
 
 三张图的 DOT 源码位于 `docs/_static/diagrams/`，Sphinx 构建时由 Graphviz 生成静态 SVG。
 SVG 使用透明背景和固定高对比色，在亮色与暗色主题中均无需外部资源。

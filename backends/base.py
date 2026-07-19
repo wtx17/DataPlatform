@@ -28,8 +28,8 @@ class DataBackend(Protocol):
         Returns
         -------
         RegisteredDataset
-            Normalized specification, Arrow schema, source descriptor, and
-            optional adjustment policy.
+            Normalized specification, Arrow schema, method-level contract,
+            source descriptor, and optional adjustment policy.
         """
 
         ...
