@@ -2,15 +2,17 @@
 
 ## Dataset definition
 
-三类公开规格都是冻结、带 slots 的 dataclass。它们只描述来源和语义，不持有查询状态：
+四类公开规格都是冻结、带 slots 的 dataclass。它们只描述来源和语义，不持有查询状态：
 
 - `DatasetSpec`：路径、键、频率、时区、版本；
 - `ClickHouseDatasetSpec`：连接、表、分区、排序、面板能力；
 - `TushareDatasetSpec`：连接、可选逻辑数据集、固定参数、版本/时区与 PIT 日历参数；键、
   频率、远程路由和表/宽表语义不在公开规格中重复配置。
+- `TushareParquetDatasetSpec`：本地归档根目录、逻辑数据集、可重建固定参数，以及仅供
+  `trade_cal` 使用的 Tushare 连接；表/宽表仍复用同一 catalog。
 
-`backend` 是选择实现的判别字段：Parquet 默认为字符串字段，ClickHouse/Tushare 使用
-`init=False` 固定值，调用者不能把远程规格伪装成其他后端。
+`backend` 是选择实现的判别字段：普通 Parquet 与 Tushare Parquet 都固定选择
+`"parquet"`，ClickHouse/Tushare 选择各自后端，调用者不能把规格伪装成其他来源。
 
 ## RegisteredDataset
 

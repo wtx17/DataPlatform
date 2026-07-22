@@ -16,7 +16,7 @@ import pyarrow.compute as pc
 
 from ._version import __version__
 from .audit import AuditWriter
-from .backends.base import DataBackend
+from .backends.base import DataBackend, TushareSemanticBackend
 from .backends.clickhouse import ClickHouseBackend
 from .backends.parquet import DuckDBParquetBackend
 from .backends.tushare import TushareBackend
@@ -37,6 +37,7 @@ from .models import (
     RegisteredDataset,
     TushareConfig,
     TushareDatasetSpec,
+    TushareParquetDatasetSpec,
 )
 from .transforms import build_daily_panels, build_panels
 
@@ -85,8 +86,9 @@ class DataClient:
         self._datasets: dict[str, RegisteredDataset] = {}
         self._clickhouse = ClickHouseBackend(clickhouse_client_factory)
         self._tushare = TushareBackend(tushare_client_factory)
+        self._parquet = DuckDBParquetBackend(self._tushare)
         self._backends: dict[str, DataBackend] = {
-            "parquet": DuckDBParquetBackend(),
+            "parquet": self._parquet,
             "clickhouse": self._clickhouse,
             "tushare": self._tushare,
         }
@@ -371,6 +373,23 @@ class DataClient:
             query = self._prepare_query(
                 mode, registered, fields, start, end, instruments, limit
             )
+            semantic_backend = (
+                cast(TushareSemanticBackend, backend)
+                if isinstance(
+                    spec, (TushareDatasetSpec, TushareParquetDatasetSpec)
+                )
+                else None
+            )
+            if isinstance(spec, TushareParquetDatasetSpec):
+                if semantic_backend is None:
+                    raise SchemaMismatchError(
+                        "Tushare Parquet semantic backend is unavailable"
+                    )
+                query = semantic_backend.normalize_snapshot_query(
+                    registered, query, mode
+                )
+                record.parameters["effective_start"] = self._audit_value(query.start)
+                record.parameters["effective_end"] = self._audit_value(query.end)
             if isinstance(spec, TushareDatasetSpec):
                 data_api = self._tushare.route_name(registered, query)
                 record.parameters["data_api"] = data_api
@@ -380,16 +399,30 @@ class DataClient:
             record.parameters["adjusted"] = apply_adjustment
             scan_query = self._with_adjustment_factor(registered, query, apply_adjustment)
             tushare_panel_kind = (
-                self._tushare.panel_kind(registered)
-                if mode == "panel" and isinstance(spec, TushareDatasetSpec)
+                semantic_backend.panel_kind(registered)
+                if mode == "panel" and semantic_backend is not None
                 else None
             )
             if tushare_panel_kind == "disclosure":
+                if semantic_backend is None:
+                    raise SchemaMismatchError(
+                        "Disclosure panel backend is unavailable"
+                    )
                 result = self._build_tushare_disclosure_panels(
-                    dataset, registered, scan_query, record
+                    dataset,
+                    registered,
+                    scan_query,
+                    record,
+                    semantic_backend,
                 )
             elif tushare_panel_kind == "membership":
-                table = self._tushare.scan_membership_panel(registered, scan_query)
+                if semantic_backend is None:
+                    raise SchemaMismatchError(
+                        "Membership panel backend is unavailable"
+                    )
+                table = semantic_backend.scan_membership_panel(
+                    registered, scan_query
+                )
                 record.calendar_aligned = True
                 record.parameters["calendar_api"] = "trade_cal"
                 record.source["calendar_api"] = "trade_cal"
@@ -452,16 +485,19 @@ class DataClient:
         dataset: RegisteredDataset,
         query: DataQuery,
         record: QueryAudit,
+        backend: TushareSemanticBackend,
     ) -> dict[str, pd.DataFrame]:
         spec = dataset.spec
-        if not isinstance(spec, TushareDatasetSpec):
+        if not isinstance(
+            spec, (TushareDatasetSpec, TushareParquetDatasetSpec)
+        ):
             raise SchemaMismatchError("PIT panels require a Tushare dataset")
         if query.start is None or query.end is None:
             raise InvalidQueryError(
                 f"Dataset {dataset_name!r} PIT panel requires both start and end"
             )
 
-        table = self._tushare.scan_disclosure_events(dataset, query)
+        table = backend.scan_disclosure_events(dataset, query)
         contract = dataset.contract
         self._validate_table_keys(
             table,
@@ -470,9 +506,9 @@ class DataClient:
             instrument_column=contract.instrument_column,
         )
         disclosure_column, period_column, revision_order = (
-            self._tushare.pit_panel_semantics(dataset)
+            backend.pit_panel_semantics(dataset)
         )
-        calendar = self._tushare.trade_calendar(dataset, query)
+        calendar = backend.trade_calendar(dataset, query)
         panels = build_daily_panels(
             table,
             dataset_name=dataset_name,
@@ -618,9 +654,18 @@ class DataClient:
         if isinstance(spec, DatasetSpec):
             if not spec.paths:
                 raise DatasetRegistrationError("Dataset paths cannot be empty")
-        if isinstance(spec, TushareDatasetSpec):
+        if isinstance(spec, (TushareDatasetSpec, TushareParquetDatasetSpec)):
             if spec.dataset is not None and not spec.dataset.strip():
                 raise DatasetRegistrationError("Tushare dataset cannot be empty")
+            if isinstance(spec, TushareParquetDatasetSpec):
+                if not str(spec.data_dir).strip():
+                    raise DatasetRegistrationError(
+                        "Tushare Parquet data_dir cannot be empty"
+                    )
+                if not spec.calendar_connection.strip():
+                    raise DatasetRegistrationError(
+                        "Tushare calendar_connection cannot be empty"
+                    )
             if not spec.calendar_exchange.strip():
                 raise DatasetRegistrationError(
                     "Tushare calendar_exchange cannot be empty"

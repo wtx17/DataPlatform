@@ -106,6 +106,31 @@ pit = data.get_panel(
 显式股票池走普通 API，`instruments=None` 自动走同一逻辑数据集的 VIP 全市场路由。
 详细规则见 [Tushare 后端](../backends/tushare.md)。
 
+### 本地 Tushare 归档
+
+同步目录包含每个逻辑数据集的 `_manifest.json` 时，可以用同一套查询 API 读取本地
+Parquet，仅把交易日历留给远程连接：
+
+```python
+from quant_data import DataClient, TushareConfig, TushareParquetDatasetSpec
+
+data = DataClient()
+data.add_tushare_connection("calendar", TushareConfig(token_env="TUSHARE_TOKEN"))
+data.register(
+    TushareParquetDatasetSpec(
+        name="income",
+        data_dir="/Users/wtx/Sync/Quant/quant_data_infra/tushare/data",
+        calendar_connection="calendar",
+    )
+)
+```
+
+`get_table()` 不读取 token；`get_panel()` 只调用 `trade_cal`，不会调用 `income` 或
+`income_vip`。显式日期越过 manifest 范围会报错，财报表缺失的边界使用 manifest 边界。
+PIT 的 `start - fetch_buffer_days` 也必须位于归档内，以保证左边界 carry-in 完整。
+`income`、`balancesheet`、`cashflow` 在未指定固定参数时与 Tushare API 一样默认使用
+`report_type=1`；需要单季报表时显式注册 `fixed_params={"report_type": "2"}`。
+
 ## 上下文管理器
 
 远程客户端会缓存复用。推荐用上下文管理器保证所有后端最终关闭：

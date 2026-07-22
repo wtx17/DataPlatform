@@ -1,4 +1,4 @@
-"""Initialize a DataClient with the project-supported remote datasets."""
+"""Initialize a DataClient with the project-supported datasets."""
 
 from __future__ import annotations
 
@@ -15,6 +15,7 @@ if __package__:
         DataClient,
         TushareConfig,
         TushareDatasetSpec,
+        TushareParquetDatasetSpec,
     )
 else:
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -24,6 +25,7 @@ else:
         DataClient,
         TushareConfig,
         TushareDatasetSpec,
+        TushareParquetDatasetSpec,
     )
 
 DEFAULT_CLICKHOUSE_CONNECTION = "minghu"
@@ -161,6 +163,40 @@ def tushare_dataset_specs(
     )
 
 
+def tushare_parquet_dataset_specs(
+    data_dir: str | Path,
+    calendar_connection: str = DEFAULT_TUSHARE_CONNECTION,
+) -> tuple[TushareParquetDatasetSpec, ...]:
+    """Return local Parquet specifications for the Tushare logical catalog.
+
+    Parameters
+    ----------
+    data_dir
+        Root containing each dataset directory and its ``_manifest.json``.
+    calendar_connection
+        Tushare profile used only by panel queries for ``trade_cal``.
+
+    Returns
+    -------
+    tuple[TushareParquetDatasetSpec, ...]
+        One manifest-backed specification per supported logical dataset.
+
+    Notes
+    -----
+    Constructing specifications does not inspect files or resolve a token.
+    Registration validates the manifests; table queries remain fully local.
+    """
+
+    return tuple(
+        TushareParquetDatasetSpec(
+            name=name,
+            data_dir=data_dir,
+            calendar_connection=calendar_connection,
+        )
+        for name in _TUSHARE_DATASETS
+    )
+
+
 def registered_dataset_names() -> tuple[str, ...]:
     """Return dataset names registered by
     :func:`quant_data.initialize.initialize_data_client`.
@@ -195,6 +231,7 @@ def initialize_data_client(
     clickhouse_password_env: str | None = None,
     clickhouse_secure: bool | None = None,
     tushare_connection: str = DEFAULT_TUSHARE_CONNECTION,
+    tushare_data_dir: str | Path | None = None,
     tushare_token: str | None = None,
     tushare_token_env: str | None = None,
 ) -> DataClient:
@@ -226,6 +263,11 @@ def initialize_data_client(
         Whether to enable TLS. Environment variables are used when omitted.
     tushare_connection
         Tushare profile name referenced by generated specifications.
+    tushare_data_dir
+        Optional root of a manifest-backed Tushare Parquet archive. When set,
+        the standard logical dataset names read local files and the Tushare
+        connection is used only for panel trading calendars. When omitted,
+        the existing remote backend is registered.
     tushare_token
         Optional direct Tushare token.
     tushare_token_env
@@ -290,7 +332,15 @@ def initialize_data_client(
                 or "TUSHARE_TOKEN",
             ),
         )
-        for tushare_spec in tushare_dataset_specs(tushare_connection):
+        tushare_specs = (
+            tushare_parquet_dataset_specs(
+                tushare_data_dir,
+                calendar_connection=tushare_connection,
+            )
+            if tushare_data_dir is not None
+            else tushare_dataset_specs(tushare_connection)
+        )
+        for tushare_spec in tushare_specs:
             client.register(tushare_spec)
 
     return client

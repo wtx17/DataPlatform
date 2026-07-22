@@ -1,6 +1,7 @@
 """Storage backend protocol."""
 
-from typing import Protocol
+from datetime import date
+from typing import Literal, Protocol
 
 import pyarrow as pa
 
@@ -70,5 +71,52 @@ class DataBackend(Protocol):
 
     def close(self) -> None:
         """Release cached clients or other persistent resources."""
+
+        ...
+
+
+class TushareSemanticBackend(Protocol):
+    """Additional operations implemented by Tushare-shaped data backends."""
+
+    def panel_kind(self, dataset: RegisteredDataset) -> str:
+        """Return the logical panel kind for a prepared dataset."""
+
+        ...
+
+    def scan_disclosure_events(
+        self, dataset: RegisteredDataset, query: DataQuery
+    ) -> pa.Table:
+        """Return disclosure events needed to construct a PIT panel."""
+
+        ...
+
+    def trade_calendar(
+        self, dataset: RegisteredDataset, query: DataQuery
+    ) -> list[date]:
+        """Return trading sessions required by a panel query."""
+
+        ...
+
+    def pit_panel_semantics(
+        self, dataset: RegisteredDataset
+    ) -> tuple[str, str, tuple[str, ...]]:
+        """Return disclosure, period, and revision-order columns."""
+
+        ...
+
+    def scan_membership_panel(
+        self, dataset: RegisteredDataset, query: DataQuery
+    ) -> pa.Table:
+        """Expand effective-dated membership rows over a trading calendar."""
+
+        ...
+
+    def normalize_snapshot_query(
+        self,
+        dataset: RegisteredDataset,
+        query: DataQuery,
+        mode: Literal["panel", "table"],
+    ) -> DataQuery:
+        """Apply and validate snapshot boundaries for a query."""
 
         ...

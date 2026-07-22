@@ -5,11 +5,12 @@
 `register(spec)` 完成三件事：验证公共键配置、根据 `spec.backend` 选择后端、调用后端
 `prepare()` 生成 `RegisteredDataset`。再次注册同名数据集会替换客户端内的旧定义。
 
-三种规格分别用于：
+四种规格分别用于：
 
 - `DatasetSpec`：本地 Parquet 文件、目录或 glob；
 - `ClickHouseDatasetSpec`：连接名与远程表；
 - `TushareDatasetSpec`：连接名、逻辑 catalog 数据集、固定参数与 PIT 日历参数。
+- `TushareParquetDatasetSpec`：manifest-backed 本地 Tushare 归档及远程交易日历连接。
 
 数据集名称不能为空；显式配置键的 Parquet/ClickHouse 规格还要求两个键非空且不同；时区
 必须是有效 IANA 名称。Tushare 的键、频率与方法语义完全由 catalog 提供。
@@ -69,8 +70,12 @@ data.get_panel("daily_bar", ["close"], start="2026-07-01")
 data.get_panel("daily_bar", ["close"], end="2026-07-31")
 ```
 
-远程规格会用自身时区本地化无时区时间，或把已有时区转换到配置时区。本地 Parquet
-查询不执行本地化，只让 DuckDB 将存储列转换成 timestamp。
+远程规格和 Tushare Parquet 规格会用自身时区本地化无时区时间，或把已有时区转换到配置
+时区。普通 `DatasetSpec` 不执行本地化，只让 DuckDB 将存储列转换成 timestamp。
+
+Tushare Parquet 的显式边界不能越过 manifest；财报表缺失边界时使用 manifest 起止日期。
+PIT 面板还要求 `start - fetch_buffer_days` 不早于归档起点，否则无法保证 carry-in 完整并
+抛出 `InvalidQueryError`。
 
 对于日内数据，`end="2026-07-31"` 表示当天 `00:00:00`。要包含整天，应给出明确的
 右边界：

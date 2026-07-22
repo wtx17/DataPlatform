@@ -34,6 +34,20 @@ data.register(
 `fixed_params` 不能覆盖后端管理的 `fields`、日期、报告期和证券参数。成员数据的 `is_new`
 例外：可以固定为 `Y` 或 `N`；未固定时后端会同时请求当前与历史区间。
 
+## 本地 Parquet 传输
+
+`TushareParquetDatasetSpec` 使用同一逻辑 catalog，但把业务数据传输替换为本地 DuckDB
+扫描。标准初始化传入 `tushare_data_dir` 时，十个原名称全部切换到这种规格；未传时保持
+本节后续描述的普通/VIP 远程路由。
+
+本地模式的 `get_table()` 不创建 Tushare 客户端。披露型和成员型 `get_panel()` 仍调用
+`trade_cal`，并复用远程后端按连接、交易所、年月缓存的交易日历；审计来源记录 Parquet
+manifest 和分区 fingerprint，不记录 `selected_api`。归档边界与 PIT 回看完整性规则见
+[Parquet 与 DuckDB](parquet.md#tushare-manifest-归档)。
+
+三张财务报表归档包含全部 `report_type`，但 API 省略参数时的默认口径是 `1`。本地后端
+同样默认过滤为 `report_type=1`；显式 `fixed_params` 可以改用单季或其他报表口径。
+
 ## 确定性路由
 
 利润表、资产负债表、现金流量表、财务指标、业绩快报和业绩预告按股票池选择路由：

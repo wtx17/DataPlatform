@@ -30,6 +30,19 @@ with DataClient() as data:
     close = data.get_panel("daily", ["close"])["close"]
 ```
 
+使用本地 Tushare 归档并保留原逻辑数据集名称：
+
+```python
+from quant_data.initialize import initialize_data_client
+
+data = initialize_data_client(
+    tushare_data_dir="/Users/wtx/Sync/Quant/quant_data_infra/tushare/data",
+)
+income = data.get_table("income", ["total_revenue"])
+```
+
+表数据完全从 Parquet 读取；PIT 和行业成员面板只远程请求 `trade_cal`。
+
 ## 完整文档
 
 从 [文档首页](docs/index.md) 开始，或直接查看：

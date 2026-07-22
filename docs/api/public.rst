@@ -28,6 +28,7 @@
    quant_data.SchemaMismatchError
    quant_data.TushareConfig
    quant_data.TushareDatasetSpec
+   quant_data.TushareParquetDatasetSpec
    quant_data.__version__
 
 初始化辅助函数
@@ -38,6 +39,7 @@
 
    quant_data.initialize.clickhouse_dataset_specs
    quant_data.initialize.tushare_dataset_specs
+   quant_data.initialize.tushare_parquet_dataset_specs
    quant_data.initialize.registered_dataset_names
    quant_data.initialize.initialize_data_client
    quant_data.initialize.initialize

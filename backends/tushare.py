@@ -8,7 +8,7 @@ import os
 import re
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
-from typing import Any, Callable, Mapping, cast
+from typing import Any, Callable, Literal, Mapping, cast
 
 import pandas as pd
 import pyarrow as pa
@@ -27,6 +27,7 @@ from ..models import (
     RegisteredDataset,
     TushareConfig,
     TushareDatasetSpec,
+    TushareParquetDatasetSpec,
 )
 from .tushare_catalog import (
     DateRangeQuery,
@@ -792,6 +793,57 @@ class TushareBackend:
             self._close_client(existing)
         self._configs[name] = config
 
+    def has_connection(self, name: str) -> bool:
+        """Return whether a named Tushare profile has been configured."""
+
+        return name in self._configs
+
+    def fetch_calendar(
+        self,
+        connection: str,
+        exchange: str,
+        start: datetime,
+        end: datetime,
+    ) -> list[date]:
+        """Fetch and cache open trading sessions for another backend.
+
+        Parameters
+        ----------
+        connection
+            Configured Tushare connection profile.
+        exchange
+            Exchange code forwarded to ``trade_cal``.
+        start, end
+            Inclusive calendar bounds.
+
+        Returns
+        -------
+        list[datetime.date]
+            Sorted open sessions within the requested bounds.
+        """
+
+        if connection not in self._configs:
+            raise DatasetRegistrationError(
+                f"Tushare connection {connection!r} is not configured"
+            )
+        return self._fetch_calendar(connection, exchange, start, end)
+
+    def normalize_snapshot_query(
+        self,
+        dataset: RegisteredDataset,
+        query: DataQuery,
+        mode: Literal["panel", "table"],
+    ) -> DataQuery:
+        """Return a remote query unchanged.
+
+        Remote Tushare datasets are not bounded by a local archive. This
+        method completes the shared semantic-backend protocol used by the
+        client and the local Parquet implementation.
+        """
+
+        del dataset, mode
+        return query
+
     def prepare(self, definition: DatasetDefinition) -> RegisteredDataset:
         """Prepare a logical catalog-backed Tushare dataset without connecting.
 
@@ -1234,7 +1286,8 @@ class TushareBackend:
 
     @staticmethod
     def _contract(
-        definition: TushareDatasetSpec, catalog: TushareDatasetCatalog
+        definition: TushareDatasetSpec | TushareParquetDatasetSpec,
+        catalog: TushareDatasetCatalog,
     ) -> DatasetContract:
         semantics = catalog.semantics
         if isinstance(semantics, DisclosureSemantics):
@@ -1274,7 +1327,8 @@ class TushareBackend:
 
     @staticmethod
     def _validate_definition(
-        definition: TushareDatasetSpec, catalog: TushareDatasetCatalog
+        definition: TushareDatasetSpec | TushareParquetDatasetSpec,
+        catalog: TushareDatasetCatalog,
     ) -> None:
         if not isinstance(definition.fixed_params, Mapping):
             raise DatasetRegistrationError("Tushare fixed_params must be a mapping")

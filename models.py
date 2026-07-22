@@ -221,7 +221,66 @@ class TushareDatasetSpec:
     backend: str = field(default="tushare", init=False)
 
 
-DatasetDefinition = DatasetSpec | ClickHouseDatasetSpec | TushareDatasetSpec
+@dataclass(frozen=True, slots=True)
+class TushareParquetDatasetSpec:
+    """Describe a local Parquet snapshot with Tushare dataset semantics.
+
+    Parameters
+    ----------
+    name
+        Stable registration name.
+    data_dir
+        Root directory containing one manifest-backed subdirectory per
+        logical Tushare dataset.
+    calendar_connection
+        Tushare connection used only to fetch ``trade_cal`` for panel queries.
+    dataset
+        Optional logical catalog name. When omitted, ``name`` is used. Supply
+        this when registering an alias or a fixed-parameter view.
+    fixed_params
+        Constant source parameters represented by stored archive columns.
+        Parameters that cannot be reconstructed from the snapshot are rejected.
+    timezone
+        IANA timezone used to interpret query bounds.
+    version
+        Optional dataset version stored in result metadata.
+    disclosure_lag
+        Trading sessions between the snapped disclosure date and availability.
+    calendar_exchange
+        Tushare exchange code used for the remote trading calendar.
+    fetch_buffer_days
+        Calendar days read before a PIT panel start for carry-in state.
+    fetch_margin_days
+        Calendar days requested after a PIT panel end for disclosure alignment.
+
+    Notes
+    -----
+    ``backend`` remains ``"parquet"``. Table data never calls a Tushare data
+    API; only panel queries use the configured connection for ``trade_cal``.
+    Dataset keys, identity columns, table ordering, and panel behavior come
+    from the same logical catalog as :class:`TushareDatasetSpec`.
+    """
+
+    name: str
+    data_dir: str | Path
+    calendar_connection: str
+    dataset: str | None = None
+    fixed_params: Mapping[str, object] = field(default_factory=dict)
+    timezone: str | None = "Asia/Shanghai"
+    version: str | None = None
+    disclosure_lag: int = 0
+    calendar_exchange: str = "SSE"
+    fetch_buffer_days: int = 180
+    fetch_margin_days: int = 31
+    backend: str = field(default="parquet", init=False)
+
+
+DatasetDefinition = (
+    DatasetSpec
+    | ClickHouseDatasetSpec
+    | TushareDatasetSpec
+    | TushareParquetDatasetSpec
+)
 
 
 @dataclass(frozen=True, slots=True)

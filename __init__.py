@@ -20,6 +20,7 @@ from .models import (
     DatasetSpec,
     TushareConfig,
     TushareDatasetSpec,
+    TushareParquetDatasetSpec,
 )
 
 __all__ = [
@@ -39,5 +40,6 @@ __all__ = [
     "SchemaMismatchError",
     "TushareConfig",
     "TushareDatasetSpec",
+    "TushareParquetDatasetSpec",
     "__version__",
 ]

@@ -39,6 +39,7 @@ from quant_data.initialize import (  # noqa: E402
 INITIALIZATION_API = (
     "quant_data.initialize.clickhouse_dataset_specs",
     "quant_data.initialize.tushare_dataset_specs",
+    "quant_data.initialize.tushare_parquet_dataset_specs",
     "quant_data.initialize.registered_dataset_names",
     "quant_data.initialize.initialize_data_client",
     "quant_data.initialize.initialize",

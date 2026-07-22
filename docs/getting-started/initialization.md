@@ -10,6 +10,19 @@ from quant_data.initialize import initialize_data_client
 data = initialize_data_client()
 ```
 
+若十个 Tushare 逻辑数据集已经同步为 manifest-backed Parquet，可显式传入归档根目录；
+原有 `income`、`balancesheet` 等名称不变：
+
+```python
+data = initialize_data_client(
+    tushare_data_dir="/Users/wtx/Sync/Quant/quant_data_infra/tushare/data",
+)
+```
+
+此模式的表数据完全从本地读取。PIT 和行业成员面板仍使用配置的 Tushare 连接请求
+`trade_cal`；只有第一次面板查询才解析 token。本地目录不会从环境变量或当前工作目录
+隐式推断，未传 `tushare_data_dir` 时继续使用远程 Tushare 数据 API。
+
 ## 环境变量
 
 | 用途 | 首选变量 | 兼容变量 | 默认值 |
@@ -46,11 +59,13 @@ tushare_only = initialize_data_client(
 from quant_data.initialize import (
     clickhouse_dataset_specs,
     registered_dataset_names,
+    tushare_parquet_dataset_specs,
     tushare_dataset_specs,
 )
 
 clickhouse_specs = clickhouse_dataset_specs("research")
 tushare_specs = tushare_dataset_specs("ts")
+local_tushare_specs = tushare_parquet_dataset_specs("/data/tushare", "ts")
 names = registered_dataset_names()
 ```
 

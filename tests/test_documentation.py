@@ -15,6 +15,7 @@ from quant_data.initialize import (
     initialize,
     initialize_data_client,
     registered_dataset_names,
+    tushare_parquet_dataset_specs,
     tushare_dataset_specs,
 )
 from quant_data.transforms import build_daily_panels, build_panels
@@ -46,6 +47,7 @@ def test_core_extension_points_have_docstrings() -> None:
         build_daily_panels,
         clickhouse_dataset_specs,
         tushare_dataset_specs,
+        tushare_parquet_dataset_specs,
         registered_dataset_names,
         initialize_data_client,
         initialize,
