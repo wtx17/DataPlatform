@@ -22,6 +22,7 @@ from quant_data.backends.tushare_catalog import (  # noqa: E402
     DisclosureSemantics,
     EventSemantics,
     MembershipSemantics,
+    ObservationSemantics,
     TUSHARE_DATASETS,
 )
 from quant_data.initialize import (  # noqa: E402
@@ -120,6 +121,9 @@ def collect_references() -> tuple[DatasetReference, ...]:
             table_time_column = semantics.period_column
             panel_time_column: str | None = semantics.panel_time_column
         elif isinstance(semantics, MembershipSemantics):
+            table_time_column = semantics.table_time_column
+            panel_time_column = semantics.panel_time_column
+        elif isinstance(semantics, ObservationSemantics):
             table_time_column = semantics.table_time_column
             panel_time_column = semantics.panel_time_column
         elif isinstance(semantics, EventSemantics):

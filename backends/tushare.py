@@ -34,7 +34,9 @@ from .tushare_catalog import (
     DisclosureSemantics,
     MembershipQuery,
     MembershipSemantics,
+    ObservationSemantics,
     PeriodQuery,
+    TradeDateQuery,
     TushareApiRoute,
     TUSHARE_DATASETS,
     TushareDatasetCatalog,
@@ -258,17 +260,42 @@ class TushareBackend:
         raw effective-dated intervals; only panel queries expand them.
         """
 
-        _, source, catalog = self._state(dataset)
+        spec, source, catalog = self._state(dataset)
         selected = self.table_columns(dataset, query.fields)
         if query.instruments == ():
             return self._empty_arrow(catalog.schema, selected)
         route = self._select_route(catalog, query.instruments)
         client = self._client(source.connection)
         remote_fields = self._remote_columns(selected, catalog)
+        trade_dates: tuple[date, ...] | None = None
+        if isinstance(route.table_query, TradeDateQuery):
+            if query.start is None or query.end is None:
+                raise InvalidQueryError(
+                    f"Dataset {spec.name!r} requires both start and end"
+                )
+            trade_dates = tuple(
+                self.fetch_calendar(
+                    source.connection,
+                    spec.calendar_exchange,
+                    query.start,
+                    query.end,
+                )
+            )
         frames = self._fetch_table_frames(
-            client, source.fixed_params, route, query, remote_fields
+            client,
+            source.fixed_params,
+            route,
+            query,
+            remote_fields,
+            trade_dates=trade_dates,
         )
         frame = self._normalize_remote_frames(frames, catalog, remote_fields, route)
+        if isinstance(route.table_query, TradeDateQuery):
+            frame = self._filter_instruments(
+                frame,
+                catalog.instrument_column,
+                query.instruments,
+            )
         semantics = catalog.semantics
         if isinstance(semantics, DisclosureSemantics):
             frame = self._filter_time(frame, semantics.period_column, query)
@@ -447,7 +474,7 @@ class TushareBackend:
         """
 
         _, source, catalog = self._state(dataset)
-        return {
+        result: dict[str, object] = {
             "backend": "tushare",
             "connection": source.connection,
             "dataset": source.dataset,
@@ -455,6 +482,12 @@ class TushareBackend:
             "schema_hash": source.schema_hash,
             "fixed_params": {str(key): str(value) for key, value in source.fixed_params.items()},
         }
+        if any(
+            isinstance(route.table_query, TradeDateQuery)
+            for route in catalog.routes
+        ):
+            result["calendar_api"] = "trade_cal"
+        return result
 
     def route_name(
         self, dataset: RegisteredDataset, query: DataQuery
@@ -467,13 +500,15 @@ class TushareBackend:
         return self._select_route(catalog, query.instruments).api_name
 
     def panel_kind(self, dataset: RegisteredDataset) -> str:
-        """Return ``disclosure``, ``membership``, or ``event`` panel semantics."""
+        """Return the catalog's panel construction kind."""
 
         _, _, catalog = self._state(dataset)
         if isinstance(catalog.semantics, DisclosureSemantics):
             return "disclosure"
         if isinstance(catalog.semantics, MembershipSemantics):
             return "membership"
+        if isinstance(catalog.semantics, ObservationSemantics):
+            return "observation"
         return "event"
 
     def table_columns(
@@ -645,6 +680,19 @@ class TushareBackend:
                 table_requires_time_range=True,
                 panel_requires_time_range=True,
             )
+        if isinstance(semantics, ObservationSemantics):
+            return DatasetContract(
+                table_time_column=semantics.table_time_column,
+                instrument_column=catalog.instrument_column,
+                table_identity_columns=semantics.identity_columns,
+                table_frequency=semantics.table_frequency,
+                panel_time_column=semantics.panel_time_column,
+                panel_frequency=semantics.panel_frequency,
+                timezone=definition.timezone,
+                version=definition.version,
+                table_requires_time_range=True,
+                panel_requires_time_range=True,
+            )
         return DatasetContract(
             table_time_column=semantics.table_time_column,
             instrument_column=catalog.instrument_column,
@@ -723,6 +771,8 @@ class TushareBackend:
                     reserved.update(
                         {query_shape.start_param, query_shape.end_param}
                     )
+                elif isinstance(query_shape, TradeDateQuery):
+                    reserved.add(query_shape.date_param)
                 # Membership status is intentionally user-fixable. Without an
                 # override the backend queries both current and historical rows.
         conflicts = reserved.intersection(definition.fixed_params)
@@ -802,6 +852,8 @@ class TushareBackend:
         route: TushareApiRoute,
         query: DataQuery,
         fields: tuple[str, ...],
+        *,
+        trade_dates: tuple[date, ...] | None = None,
     ) -> list[pd.DataFrame]:
         """Execute one catalog route without changing logical table semantics."""
 
@@ -813,11 +865,19 @@ class TushareBackend:
         shape = route.table_query
         periods: tuple[str | None, ...] = (None,)
         statuses: tuple[str | None, ...] = (None,)
+        dates: tuple[date | None, ...] = (None,)
         if isinstance(shape, PeriodQuery):
             resolved = self._periods(query.start, query.end)
             if resolved == ():
                 return []
             periods = resolved if resolved is not None else (None,)
+        elif isinstance(shape, TradeDateQuery):
+            if trade_dates is None:
+                raise SchemaMismatchError(
+                    f"Tushare api {route.api_name!r} requires resolved trading dates"
+                )
+            instruments = (None,)
+            dates = trade_dates
         elif isinstance(shape, MembershipQuery):
             statuses = (
                 (None,)
@@ -829,17 +889,35 @@ class TushareBackend:
         for instrument in instruments:
             for period in periods:
                 for status in statuses:
-                    params = self._route_params(
-                        fixed_params,
-                        route,
-                        query,
-                        fields,
-                        period=period,
-                        membership_status=status,
-                    )
-                    if instrument is not None:
-                        params[route.instrument_param] = instrument
-                    frames.append(self._call_api(client, route.api_name, params))
+                    for trade_date in dates:
+                        params = self._route_params(
+                            fixed_params,
+                            route,
+                            query,
+                            fields,
+                            period=period,
+                            membership_status=status,
+                            trade_date=trade_date,
+                        )
+                        if instrument is not None:
+                            params[route.instrument_param] = instrument
+                        frame = self._call_api(client, route.api_name, params)
+                        if (
+                            isinstance(shape, TradeDateQuery)
+                            and len(frame) >= shape.max_rows
+                        ):
+                            rendered_date = (
+                                trade_date.isoformat()
+                                if trade_date is not None
+                                else "unknown"
+                            )
+                            raise RemoteQueryError(
+                                f"Tushare api {route.api_name!r} returned "
+                                f"{len(frame)} rows for {rendered_date}; "
+                                f"the result may be truncated at the "
+                                f"{shape.max_rows}-row API limit"
+                            )
+                        frames.append(frame)
         return frames
 
     def _fetch_disclosure_route_frames(
@@ -884,6 +962,7 @@ class TushareBackend:
         *,
         period: str | None,
         membership_status: str | None,
+        trade_date: date | None,
     ) -> dict[str, object]:
         params = dict(fixed_params)
         params["fields"] = ",".join(fields)
@@ -895,6 +974,8 @@ class TushareBackend:
                 params[shape.start_param] = query.start.strftime("%Y%m%d")
             if query.end is not None:
                 params[shape.end_param] = query.end.strftime("%Y%m%d")
+        elif isinstance(shape, TradeDateQuery) and trade_date is not None:
+            params[shape.date_param] = trade_date.strftime("%Y%m%d")
         elif isinstance(shape, MembershipQuery) and membership_status is not None:
             params[shape.status_param] = membership_status
         return params
@@ -1165,6 +1246,16 @@ class TushareBackend:
             end = pd.Timestamp(query.end.date())
             frame = frame.loc[values.notna() & (values <= end)]
         return frame
+
+    @staticmethod
+    def _filter_instruments(
+        frame: pd.DataFrame,
+        instrument_column: str,
+        instruments: tuple[str, ...] | None,
+    ) -> pd.DataFrame:
+        if frame.empty or instruments is None:
+            return frame
+        return frame.loc[frame[instrument_column].isin(instruments)]
 
     @staticmethod
     def _filter_membership_overlap(

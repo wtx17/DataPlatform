@@ -394,6 +394,9 @@ class DataClient:
                 data_api = self._tushare.route_name(registered, query)
                 record.parameters["data_api"] = data_api
                 record.source["selected_api"] = data_api
+                calendar_api = record.source.get("calendar_api")
+                if isinstance(calendar_api, str):
+                    record.parameters["calendar_api"] = calendar_api
             apply_adjustment = self._resolve_adjustment(registered, adjusted)
             record.adjusted = apply_adjustment
             record.parameters["adjusted"] = apply_adjustment

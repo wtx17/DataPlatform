@@ -29,6 +29,14 @@ class DateRangeQuery:
 
 
 @dataclass(frozen=True, slots=True)
+class TradeDateQuery:
+    """Describe an API fetched once per open trading date."""
+
+    date_param: str = "trade_date"
+    max_rows: int = 6000
+
+
+@dataclass(frozen=True, slots=True)
 class UnboundedQuery:
     """Describe an API whose table rows are filtered locally."""
 
@@ -41,7 +49,9 @@ class MembershipQuery:
     status_values: tuple[str, ...] = ("Y", "N")
 
 
-TableQuery: TypeAlias = PeriodQuery | DateRangeQuery | UnboundedQuery | MembershipQuery
+TableQuery: TypeAlias = (
+    PeriodQuery | DateRangeQuery | TradeDateQuery | UnboundedQuery | MembershipQuery
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -83,6 +93,18 @@ class MembershipSemantics:
 
 
 @dataclass(frozen=True, slots=True)
+class ObservationSemantics:
+    """Describe unique time/instrument observations that can be pivoted."""
+
+    table_time_column: str
+    identity_columns: tuple[str, ...]
+    table_order: tuple[str, ...]
+    table_frequency: str | None = "d"
+    panel_time_column: str = "trade_date"
+    panel_frequency: str = "d"
+
+
+@dataclass(frozen=True, slots=True)
 class EventSemantics:
     """Describe a long event stream that cannot be pivoted."""
 
@@ -92,7 +114,9 @@ class EventSemantics:
     table_frequency: str | None = "d"
 
 
-TushareSemantics: TypeAlias = DisclosureSemantics | MembershipSemantics | EventSemantics
+TushareSemantics: TypeAlias = (
+    DisclosureSemantics | MembershipSemantics | ObservationSemantics | EventSemantics
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -153,7 +177,24 @@ def build_tushare_catalogs(
             ),
         )
 
+    observation_semantics = ObservationSemantics(
+        table_time_column="trade_date",
+        identity_columns=(),
+        table_order=("trade_date", "ts_code"),
+    )
     catalogs = {
+        "daily_basic": TushareDatasetCatalog(
+            name="daily_basic",
+            schema=schemas["daily_basic"],
+            semantics=observation_semantics,
+            routes=(
+                TushareApiRoute(
+                    api_name="daily_basic",
+                    universe="both",
+                    table_query=TradeDateQuery(),
+                ),
+            ),
+        ),
         "income": financial(
             "income",
             disclosure_column="f_ann_date",
@@ -305,7 +346,9 @@ __all__ = [
     "EventSemantics",
     "MembershipQuery",
     "MembershipSemantics",
+    "ObservationSemantics",
     "PeriodQuery",
+    "TradeDateQuery",
     "TushareApiRoute",
     "TushareDatasetCatalog",
     "TUSHARE_DATASETS",

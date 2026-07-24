@@ -42,7 +42,8 @@ Catalog 负责静态 schema 和数据语义。
 
 - 普通 `DatasetSpec`：递归解析 Parquet，合并 Arrow schema，通过 DuckDB 投影和过滤。
 - `TushareParquetDatasetSpec`：读取 `_manifest.json` 和分区，复用远端 Tushare catalog。
-- 本地 Tushare 表查询不调用数据 API；面板查询只通过 Tushare 获取 `trade_cal`。
+- 本地 Tushare 表查询不调用数据 API；披露和成分面板只通过 Tushare 获取
+  `trade_cal`，普通观测面板保持全本地。
 - manifest 字段、分区字段、行数、类型和固定参数在注册时校验。
 
 ### ClickHouse
@@ -57,7 +58,14 @@ Catalog 负责静态 schema 和数据语义。
 
 - `TUSHARE_SCHEMAS` 定义有序 Arrow schema。
 - `TUSHARE_DATASETS` 将 schema、API route 和时间语义组合成逻辑 catalog。
-- 单证券使用普通 API；全市场使用 VIP API；不做失败后的隐式 route 回退。
+- 财务披露数据的单证券查询使用普通 API，全市场查询使用 VIP API；不做失败后的隐式
+  route 回退。
+- `TradeDateQuery` 描述必须按开市日切片的 API；`ObservationSemantics` 描述可直接透视的
+  唯一 `time × instrument` 观测。
+- `daily_basic` 同时要求 `start/end`，复用缓存的 `trade_cal`，然后仅携带
+  `trade_date` 逐日请求。指定证券时先取当日全市场数据，再在标准化后本地过滤。
+- `daily_basic` 单日响应达到 6000 行即视为可能截断并失败，不返回静默缺行的数据。
+- 审计同时记录 `daily_basic` 数据 API 和用于枚举开市日的 `trade_cal`。
 - 返回值统一转换为 catalog 类型，日期字符串转换为 `date32`。
 - 交易日历按连接、交易所、年月缓存。
 
@@ -75,6 +83,8 @@ Catalog 负责静态 schema 和数据语义。
 - `transforms.panel.build_panels()` 校验键非空和键对唯一。
 - 每个请求字段生成一个 Pandas DataFrame。
 - 调用方指定的证券顺序必须保留；无数据证券补全为空列。
+- `daily_basic` 先由 Backend 合并逐交易日响应为 `trade_date × ts_code` 长表，再直接复用
+  此普通透视路径；不在 `DataClient` 中维护专用宽表分支。
 
 ### Point-in-time 面板
 
@@ -95,6 +105,8 @@ Catalog 负责静态 schema 和数据语义。
 - `DatasetContract` 是键、频率、时间范围要求和面板能力的事实来源。
 - 注册名称唯一；重复注册替换旧 prepared state。
 - 查询边界闭区间；需要分区或 PIT 的数据集要求同时提供起止时间。
+- `TradeDateQuery` 数据集也必须同时提供起止时间；不能退化为可能受行数上限影响的无界查询。
 - 所有成功和失败查询都必须写审计记录。
 - 审计 fingerprint 只能包含经过清洗的来源信息。
 - 内置 catalog、生成文档和 schema 签名测试必须同步。
+- 远端默认数据集与默认本地快照集合可以不同；`daily_basic` 当前只在远端默认集合中。

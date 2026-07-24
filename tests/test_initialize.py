@@ -49,6 +49,7 @@ def test_registered_dataset_names_include_new_minghu_tables() -> None:
 def test_tushare_specs_contain_one_entry_per_logical_dataset() -> None:
     specs = tushare_dataset_specs("research")
     assert [spec.name for spec in specs] == [
+        "daily_basic",
         "income",
         "balancesheet",
         "cashflow",

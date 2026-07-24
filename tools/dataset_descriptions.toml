@@ -360,6 +360,67 @@ description = "合并的成交单子的买方委托编号"
 [datasets.minghu_zb.fields.caskno]
 description = "合并的成交单子的买方委托编号"
 
+[datasets.daily_basic]
+title = "Tushare 每日基本面指标"
+summary = "全市场每日基本面指标。查询必须同时给出 `start` 和 `end`；远端按交易日逐日获取，`get_panel()` 以 `trade_date × ts_code` 构造宽表。"
+
+[datasets.daily_basic.fields.ts_code]
+description = "带交易所后缀的证券代码。"
+
+[datasets.daily_basic.fields.trade_date]
+description = "交易日期。"
+
+[datasets.daily_basic.fields.close]
+description = "当日收盘价。"
+
+[datasets.daily_basic.fields.turnover_rate]
+description = "换手率（成交量/无限售流通股数）。"
+
+[datasets.daily_basic.fields.turnover_rate_f]
+description = "自由流通股换手率（成交量/自由流通股数）。"
+
+[datasets.daily_basic.fields.volume_ratio]
+description = "量比（成交量/平均成交量）。"
+
+[datasets.daily_basic.fields.pe]
+description = "市盈率（总市值/净利润）；亏损时为空。"
+
+[datasets.daily_basic.fields.pe_ttm]
+description = "滚动市盈率（总市值/最近十二个月净利润）；亏损时为空。"
+
+[datasets.daily_basic.fields.pb]
+description = "市净率（总市值/扣除其他权益工具后的净资产）。"
+
+[datasets.daily_basic.fields.ps]
+description = "市销率（总市值/最新年报营业收入）。"
+
+[datasets.daily_basic.fields.ps_ttm]
+description = "滚动市销率（总市值/最近十二个月营业收入）。"
+
+[datasets.daily_basic.fields.dv_ratio]
+description = "股息率（%）；派现除息日发生在上一年度期间。"
+
+[datasets.daily_basic.fields.dv_ttm]
+description = "最近十二个月股息率（%）。"
+
+[datasets.daily_basic.fields.total_share]
+description = "总股本（万股）。"
+
+[datasets.daily_basic.fields.float_share]
+description = "流通股本（万股）。"
+
+[datasets.daily_basic.fields.free_share]
+description = "自由流通股本（万股）。"
+
+[datasets.daily_basic.fields.total_mv]
+description = "总市值（万元）。"
+
+[datasets.daily_basic.fields.circ_mv]
+description = "流通市值（万元）。"
+
+[datasets.daily_basic.fields.limit_status]
+description = "收盘涨跌状态：0 平盘，1 上涨，2 涨停，3 一字涨停，4 下跌，5 跌停，6 一字跌停。"
+
 [datasets.income]
 title = "Tushare 利润表"
 summary = "利润表逻辑数据集。`get_table()` 按报告期保留全部公告与修订；`get_panel()` 以 `f_ann_date` 对齐交易日并构造 PIT 状态。"

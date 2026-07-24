@@ -34,6 +34,7 @@ from .tushare import TushareBackend
 from .tushare_catalog import (
     DisclosureSemantics,
     MembershipSemantics,
+    ObservationSemantics,
     TushareDatasetCatalog,
 )
 
@@ -534,13 +535,15 @@ class DuckDBParquetBackend:
         return replace(query, start=start, end=end)
 
     def panel_kind(self, dataset: RegisteredDataset) -> str:
-        """Return ``disclosure``, ``membership``, or ``event`` semantics."""
+        """Return the catalog's panel construction kind."""
 
         _, _, catalog = self._tushare_state(dataset)
         if isinstance(catalog.semantics, DisclosureSemantics):
             return "disclosure"
         if isinstance(catalog.semantics, MembershipSemantics):
             return "membership"
+        if isinstance(catalog.semantics, ObservationSemantics):
+            return "observation"
         return "event"
 
     def scan_disclosure_events(

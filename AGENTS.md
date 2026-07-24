@@ -8,6 +8,7 @@
 - `DataClient.get_table()` 返回保留事件、修订和身份列的 Arrow 长表。
 - ClickHouse 支持内置 Minghu 表和自定义表。
 - Tushare 支持远端 API，以及带 manifest 的本地 Parquet 快照。
+- Tushare `daily_basic` 支持普通日频长表和宽表；远端查询按交易日逐日获取。
 - Tushare 财务披露数据支持交易日对齐的 point-in-time 面板。
 - 行业成分支持有效区间展开；一对多事件只支持长表。
 - 每次查询都写入不含凭据的 JSON 审计记录。
@@ -77,6 +78,12 @@ ruff format --check path/to/changed.py
   - 重新生成 `DATASETS.md`
 - 修改 ClickHouse 内置字段时，同步更新 `backends/clickhouse_catalog.py` 和集成校验。
 - 保持 schema 字段顺序稳定；顺序参与 Tushare schema hash。
+- `daily_basic` 的 `get_table()` 和 `get_panel()` 都要求闭区间 `start/end`。远端先通过
+  `trade_cal` 获取开市日，再逐日调用 `daily_basic(trade_date=...)`；即使指定
+  `instruments` 也不要同时向 API 发送 `ts_code`，而应在合并后本地过滤。
+- `daily_basic` 单日返回达到 6000 行时必须报错，不能把可能被 API 截断的数据当作完整结果。
+- `daily_basic` 默认只注册远端数据源，不属于 `_TUSHARE_ARCHIVE_DATASETS`。如需改变本地
+  Parquet 默认集合，先确认旧快照目录缺少对应 manifest 时的兼容策略。
 - `get_table()` 必须保留自动键和身份列；不要把事件数据强制透视为面板。
 - 不要在审计、异常、日志或 `repr` 中写入密码和 token。
 - 不要在未确认兼容策略时放宽 Tushare Parquet manifest 和分区 schema 校验。

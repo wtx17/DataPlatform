@@ -19,6 +19,7 @@
 | [`minghu_m1`](#dataset-minghu-m1) | 宽表 | 长表 |
 | [`minghu_tk`](#dataset-minghu-tk) | 不支持 | 长表 |
 | [`minghu_zb`](#dataset-minghu-zb) | 不支持 | 长表 |
+| [`daily_basic`](#dataset-daily-basic) | 宽表 | 长表 |
 | [`income`](#dataset-income) | 宽表 | 长表 |
 | [`balancesheet`](#dataset-balancesheet) | 宽表 | 长表 |
 | [`cashflow`](#dataset-cashflow) | 宽表 | 长表 |
@@ -197,6 +198,36 @@
 | `ctype` | `FixedString(1)` | `get_table()` 可请求值 | type,side,flag的合并, 1是新增限价委托,2是新增市价委托,3是新增本方最优,4是撤单,5是成交 |
 | `cbidno` | `Nullable(Int64)` | `get_table()` 可请求值 | 合并的成交单子的买方委托编号 |
 | `caskno` | `Nullable(Int64)` | `get_table()` 可请求值 | 合并的成交单子的买方委托编号 |
+
+<a id="dataset-daily-basic"></a>
+## `daily_basic`：Tushare 每日基本面指标
+
+全市场每日基本面指标。查询必须同时给出 `start` 和 `end`；远端按交易日逐日获取，`get_panel()` 以 `trade_date × ts_code` 构造宽表。
+
+- `get_panel()`：支持；按 `trade_date × ts_code` 返回每个请求字段的宽表。
+- `get_table()`：支持；自动返回 `trade_date`、`ts_code`，再附加请求字段。
+
+| 字段 | 类型 | 使用方式 | 说明 |
+| --- | --- | --- | --- |
+| `ts_code` | `string` | `get_panel()` 列键；`get_table()` 自动证券键 | 带交易所后缀的证券代码。 |
+| `trade_date` | `date32[day]` | `get_panel()` 索引；`get_table()` 自动时间键 | 交易日期。 |
+| `close` | `double` | `get_panel()` / `get_table()` 可请求值 | 当日收盘价。 |
+| `turnover_rate` | `double` | `get_panel()` / `get_table()` 可请求值 | 换手率（成交量/无限售流通股数）。 |
+| `turnover_rate_f` | `double` | `get_panel()` / `get_table()` 可请求值 | 自由流通股换手率（成交量/自由流通股数）。 |
+| `volume_ratio` | `double` | `get_panel()` / `get_table()` 可请求值 | 量比（成交量/平均成交量）。 |
+| `pe` | `double` | `get_panel()` / `get_table()` 可请求值 | 市盈率（总市值/净利润）；亏损时为空。 |
+| `pe_ttm` | `double` | `get_panel()` / `get_table()` 可请求值 | 滚动市盈率（总市值/最近十二个月净利润）；亏损时为空。 |
+| `pb` | `double` | `get_panel()` / `get_table()` 可请求值 | 市净率（总市值/扣除其他权益工具后的净资产）。 |
+| `ps` | `double` | `get_panel()` / `get_table()` 可请求值 | 市销率（总市值/最新年报营业收入）。 |
+| `ps_ttm` | `double` | `get_panel()` / `get_table()` 可请求值 | 滚动市销率（总市值/最近十二个月营业收入）。 |
+| `dv_ratio` | `double` | `get_panel()` / `get_table()` 可请求值 | 股息率（%）；派现除息日发生在上一年度期间。 |
+| `dv_ttm` | `double` | `get_panel()` / `get_table()` 可请求值 | 最近十二个月股息率（%）。 |
+| `total_share` | `double` | `get_panel()` / `get_table()` 可请求值 | 总股本（万股）。 |
+| `float_share` | `double` | `get_panel()` / `get_table()` 可请求值 | 流通股本（万股）。 |
+| `free_share` | `double` | `get_panel()` / `get_table()` 可请求值 | 自由流通股本（万股）。 |
+| `total_mv` | `double` | `get_panel()` / `get_table()` 可请求值 | 总市值（万元）。 |
+| `circ_mv` | `double` | `get_panel()` / `get_table()` 可请求值 | 流通市值（万元）。 |
+| `limit_status` | `int64` | `get_panel()` / `get_table()` 可请求值 | 收盘涨跌状态：0 平盘，1 上涨，2 涨停，3 一字涨停，4 下跌，5 跌停，6 一字跌停。 |
 
 <a id="dataset-income"></a>
 ## `income`：Tushare 利润表

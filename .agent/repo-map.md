@@ -85,6 +85,14 @@ Agent 工作约定、架构说明和本文件。
 内部环境解析：`_resolve_tushare_local_datasets(...)`, `_first_env(...)`,
 `_env_int(...)`, `_env_bool(...)`。
 
+Tushare 注册集合：
+
+- `_TUSHARE_DATASETS`：全部远端默认数据集，包含 `daily_basic`。
+- `_TUSHARE_ARCHIVE_DATASETS`：保持旧 manifest 快照集合，不包含 `daily_basic`。
+- `tushare_parquet_dataset_specs()` 只生成默认快照集合；显式
+  `tushare_local_datasets={"daily_basic"}` 仍可选择本地，但必须已有通过严格校验的
+  `daily_basic` manifest 和分区。
+
 默认 ClickHouse 数据集：
 
 - `minghu_daily -> stock_base.daily`
@@ -95,6 +103,7 @@ Agent 工作约定、架构说明和本文件。
 
 默认 Tushare 数据集：
 
+- `daily_basic`
 - `income`, `balancesheet`, `cashflow`, `fina_indicator`, `express`, `forecast`
 - `stk_holdernumber`, `ci_index_member`, `index_member_all`, `stk_holdertrade`
 
@@ -202,8 +211,8 @@ Agent 工作约定、架构说明和本文件。
 - `_schema(*groups) -> pa.Schema`
 - `TUSHARE_SCHEMAS: dict[str, pa.Schema]`
 
-物理 schema：`income`, `balancesheet`, `cashflow`, `fina_indicator`, `express`,
-`forecast`, `stk_holdernumber`, `stk_holdertrade`, `industry_member`。
+物理 schema：`daily_basic`, `income`, `balancesheet`, `cashflow`, `fina_indicator`,
+`express`, `forecast`, `stk_holdernumber`, `stk_holdertrade`, `industry_member`。
 
 ### `backends/tushare_catalog.py`
 
@@ -211,6 +220,7 @@ Agent 工作约定、架构说明和本文件。
 
 - `PeriodQuery(period_param="period")`
 - `DateRangeQuery(start_param="start_date", end_param="end_date")`
+- `TradeDateQuery(date_param="trade_date", max_rows=6000)`
 - `UnboundedQuery()`
 - `MembershipQuery(status_param="is_new", status_values=("Y", "N"))`
 
@@ -219,12 +229,15 @@ Catalog 对象：
 - `TushareApiRoute(api_name, universe, table_query, disclosure_query=None, instrument_param="ts_code")`
 - `DisclosureSemantics(period_column, disclosure_column, identity_columns, revision_order, table_order, table_frequency="q", panel_time_column="trade_date", panel_frequency="d")`
 - `MembershipSemantics(interval_start_column, interval_end_column, identity_columns, table_order, table_time_column="in_date", panel_time_column="date", panel_frequency="d")`
+- `ObservationSemantics(table_time_column, identity_columns, table_order, table_frequency="d", panel_time_column="trade_date", panel_frequency="d")`
 - `EventSemantics(table_time_column, identity_columns, table_order, table_frequency="d")`
 - `TushareDatasetCatalog(name, schema, semantics, routes, instrument_column="ts_code")`
 - `build_tushare_catalogs(schemas) -> dict[str, TushareDatasetCatalog]`
 - `TUSHARE_DATASETS`
 
-`ci_index_member` 和 `index_member_all` 共用 `industry_member` schema。
+- `daily_basic` 使用 `ObservationSemantics` 和 `TradeDateQuery`；键为
+  `trade_date × ts_code`，表和面板查询都要求闭区间。
+- `ci_index_member` 和 `index_member_all` 共用 `industry_member` schema。
 
 ### `backends/tushare.py`
 
@@ -252,10 +265,11 @@ Catalog 对象：
 关键内部入口：
 
 - `_select_route(catalog, instruments) -> TushareApiRoute`
-- `_fetch_table_frames(client, fixed_params, route, query, fields)`
+- `_fetch_table_frames(client, fixed_params, route, query, fields, *, trade_dates=None)`
 - `_fetch_disclosure_route_frames(client, fixed_params, route, query, fields)`
-- `_route_params(fixed_params, route, query, fields, *, period, membership_status)`
+- `_route_params(fixed_params, route, query, fields, *, period, membership_status, trade_date)`
 - `_normalize_remote_frames(frames, catalog, columns, route) -> pd.DataFrame`
+- `_filter_instruments(frame, instrument_column, instruments) -> pd.DataFrame`
 - `_expand_membership_panel(frame, semantics, instrument_column, query, calendar, columns)`
 - `_coerce_frame(frame, schema) -> pd.DataFrame`
 - `_frame_to_arrow(frame, schema, selected) -> pa.Table`
@@ -315,6 +329,8 @@ Catalog 对象：
 - `tests/test_initialize.py`：默认 spec、注册名称、离线初始化。
 - `tests/test_dataset_catalog.py`：生成文档离线且无漂移。
 - `tests/test_tushare_pit.py`：财务披露 route、修订、lag、PIT 状态。
+- `tests/test_tushare_daily_basic.py`：交易日逐日请求、普通宽表、本地证券过滤、闭区间和
+  6000 行截断保护。
 - `tests/test_tushare_industry.py`：中信/申万有效区间和面板展开。
 - `tests/test_tushare_parquet.py`：manifest、本地语义、混合远端/本地初始化。
 - `tests/test_tushare_schemas.py`：Tushare schema 字段数量、顺序和类型 hash。

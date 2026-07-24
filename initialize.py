@@ -88,7 +88,7 @@ _CLICKHOUSE_LONG_SPECS = (
     ),
 )
 
-_TUSHARE_DATASETS = (
+_TUSHARE_ARCHIVE_DATASETS = (
     "income",
     "balancesheet",
     "cashflow",
@@ -100,6 +100,7 @@ _TUSHARE_DATASETS = (
     "index_member_all",
     "stk_holdertrade",
 )
+_TUSHARE_DATASETS = ("daily_basic", *_TUSHARE_ARCHIVE_DATASETS)
 
 
 def clickhouse_dataset_specs(
@@ -182,7 +183,7 @@ def tushare_parquet_dataset_specs(
     Returns
     -------
     tuple[TushareParquetDatasetSpec, ...]
-        One manifest-backed specification per supported logical dataset.
+        One manifest-backed specification per default archive dataset.
 
     Notes
     -----
@@ -196,7 +197,7 @@ def tushare_parquet_dataset_specs(
             data_dir=data_dir,
             calendar_connection=calendar_connection,
         )
-        for name in _TUSHARE_DATASETS
+        for name in _TUSHARE_ARCHIVE_DATASETS
     )
 
 
@@ -273,9 +274,10 @@ def initialize_data_client(
         When omitted, all Tushare datasets use the remote backend.
     tushare_local_datasets
         Logical dataset names that should read from ``tushare_data_dir``.
-        When omitted and ``tushare_data_dir`` is set, all Tushare datasets
-        remain local for backward compatibility. An explicit empty collection
-        selects the remote backend for every dataset.
+        When omitted and ``tushare_data_dir`` is set, the previously supported
+        archive datasets remain local for backward compatibility; datasets
+        without a default archive, such as ``daily_basic``, remain remote. An
+        explicit empty collection selects the remote backend for every dataset.
     tushare_token
         Optional direct Tushare token.
     tushare_token_env
@@ -370,7 +372,11 @@ def _resolve_tushare_local_datasets(
     local_datasets: Collection[str] | None,
 ) -> frozenset[str]:
     if local_datasets is None:
-        return frozenset(_TUSHARE_DATASETS) if data_dir is not None else frozenset()
+        return (
+            frozenset(_TUSHARE_ARCHIVE_DATASETS)
+            if data_dir is not None
+            else frozenset()
+        )
     if isinstance(local_datasets, str):
         raise DatasetRegistrationError(
             "tushare_local_datasets must be a collection of dataset names, not a string"

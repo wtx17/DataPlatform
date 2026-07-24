@@ -479,12 +479,14 @@ def test_local_initialization_registers_standard_names_without_token(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     root = tmp_path / "archive"
-    for dataset in TUSHARE_DATASETS:
-        write_archive(root, dataset, [])
+    specs = tushare_parquet_dataset_specs(root, calendar_connection="calendar")
+    assert [spec.name for spec in specs] == [
+        name for name in TUSHARE_DATASETS if name != "daily_basic"
+    ]
+    for spec in specs:
+        write_archive(root, spec.name, [])
     monkeypatch.delenv("MISSING_LOCAL_CALENDAR_TOKEN", raising=False)
 
-    specs = tushare_parquet_dataset_specs(root, calendar_connection="calendar")
-    assert [spec.name for spec in specs] == list(TUSHARE_DATASETS)
     client = initialize_data_client(
         audit_dir=tmp_path / "audit",
         register_clickhouse=False,
@@ -495,6 +497,13 @@ def test_local_initialization_registers_standard_names_without_token(
 
     table = client.get_table("income", ["total_revenue"])
     assert table.num_rows == 0
+    with pytest.raises(BackendConnectionError, match="MISSING_LOCAL_CALENDAR_TOKEN"):
+        client.get_table(
+            "daily_basic",
+            ["close"],
+            start="2024-07-01",
+            end="2024-07-05",
+        )
     with pytest.raises(BackendConnectionError, match="MISSING_LOCAL_CALENDAR_TOKEN"):
         client.get_panel(
             "income",

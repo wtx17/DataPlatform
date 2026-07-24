@@ -7,6 +7,10 @@ from quant_data.backends.tushare_schemas import TUSHARE_SCHEMAS
 
 
 EXPECTED_SCHEMA_SIGNATURES = {
+    "daily_basic": (
+        19,
+        "231581e5df759186791c72d964b721b5094834bb6e6fb51bc0598026bee9f70c",
+    ),
     "income": (94, "a34a71f86c4f0031d881e95e56107d2a0a91f582edee81497e2e34f3c67722d5"),
     "balancesheet": (
         158,

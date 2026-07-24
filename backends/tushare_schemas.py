@@ -47,6 +47,43 @@ def _schema(*groups: tuple[pa.Field, ...]) -> pa.Schema:
 
 
 TUSHARE_SCHEMAS: dict[str, pa.Schema] = {
+    "daily_basic": _schema(
+        _strings(
+            [
+                "ts_code",
+            ]
+        ),
+        _dates(
+            [
+                "trade_date",
+            ]
+        ),
+        _floats(
+            [
+                "close",
+                "turnover_rate",
+                "turnover_rate_f",
+                "volume_ratio",
+                "pe",
+                "pe_ttm",
+                "pb",
+                "ps",
+                "ps_ttm",
+                "dv_ratio",
+                "dv_ttm",
+                "total_share",
+                "float_share",
+                "free_share",
+                "total_mv",
+                "circ_mv",
+            ]
+        ),
+        _integers(
+            [
+                "limit_status",
+            ]
+        ),
+    ),
     "income": _schema(
         _strings(
             [
