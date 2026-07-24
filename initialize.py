@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import sys
+from collections.abc import Collection
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -13,6 +14,7 @@ if __package__:
         ClickHouseConfig,
         ClickHouseDatasetSpec,
         DataClient,
+        DatasetRegistrationError,
         TushareConfig,
         TushareDatasetSpec,
         TushareParquetDatasetSpec,
@@ -23,6 +25,7 @@ else:
         ClickHouseConfig,
         ClickHouseDatasetSpec,
         DataClient,
+        DatasetRegistrationError,
         TushareConfig,
         TushareDatasetSpec,
         TushareParquetDatasetSpec,
@@ -232,10 +235,11 @@ def initialize_data_client(
     clickhouse_secure: bool | None = None,
     tushare_connection: str = DEFAULT_TUSHARE_CONNECTION,
     tushare_data_dir: str | Path | None = None,
+    tushare_local_datasets: Collection[str] | None = None,
     tushare_token: str | None = None,
     tushare_token_env: str | None = None,
 ) -> DataClient:
-    """Create a client and register the project-supported remote datasets.
+    """Create a client and register the project-supported datasets.
 
     Parameters
     ----------
@@ -265,9 +269,13 @@ def initialize_data_client(
         Tushare profile name referenced by generated specifications.
     tushare_data_dir
         Optional root of a manifest-backed Tushare Parquet archive. When set,
-        the standard logical dataset names read local files and the Tushare
-        connection is used only for panel trading calendars. When omitted,
-        the existing remote backend is registered.
+        datasets selected by ``tushare_local_datasets`` read local files.
+        When omitted, all Tushare datasets use the remote backend.
+    tushare_local_datasets
+        Logical dataset names that should read from ``tushare_data_dir``.
+        When omitted and ``tushare_data_dir`` is set, all Tushare datasets
+        remain local for backward compatibility. An explicit empty collection
+        selects the remote backend for every dataset.
     tushare_token
         Optional direct Tushare token.
     tushare_token_env
@@ -290,6 +298,11 @@ def initialize_data_client(
     Importing this module and calling the specification helpers are side-effect
     free.
     """
+    local_tushare_datasets = (
+        _resolve_tushare_local_datasets(tushare_data_dir, tushare_local_datasets)
+        if register_tushare
+        else frozenset()
+    )
     client = DataClient(
         audit_dir=audit_dir
         if audit_dir is not None
@@ -332,18 +345,55 @@ def initialize_data_client(
                 or "TUSHARE_TOKEN",
             ),
         )
-        tushare_specs = (
-            tushare_parquet_dataset_specs(
-                tushare_data_dir,
-                calendar_connection=tushare_connection,
-            )
-            if tushare_data_dir is not None
-            else tushare_dataset_specs(tushare_connection)
-        )
-        for tushare_spec in tushare_specs:
-            client.register(tushare_spec)
+        for dataset_name in _TUSHARE_DATASETS:
+            if tushare_data_dir is not None and dataset_name in local_tushare_datasets:
+                client.register(
+                    TushareParquetDatasetSpec(
+                        name=dataset_name,
+                        data_dir=tushare_data_dir,
+                        calendar_connection=tushare_connection,
+                    )
+                )
+            else:
+                client.register(
+                    TushareDatasetSpec(
+                        name=dataset_name,
+                        connection=tushare_connection,
+                    )
+                )
 
     return client
+
+
+def _resolve_tushare_local_datasets(
+    data_dir: str | Path | None,
+    local_datasets: Collection[str] | None,
+) -> frozenset[str]:
+    if local_datasets is None:
+        return frozenset(_TUSHARE_DATASETS) if data_dir is not None else frozenset()
+    if isinstance(local_datasets, str):
+        raise DatasetRegistrationError(
+            "tushare_local_datasets must be a collection of dataset names, not a string"
+        )
+
+    values = tuple(local_datasets)
+    invalid = [repr(name) for name in values if not isinstance(name, str) or not name.strip()]
+    if invalid:
+        raise DatasetRegistrationError(
+            f"tushare_local_datasets must contain only non-empty strings: {invalid}"
+        )
+    selected = frozenset(values)
+    unsupported = sorted(selected.difference(_TUSHARE_DATASETS))
+    if unsupported:
+        raise DatasetRegistrationError(
+            f"Unsupported Tushare local datasets: {unsupported}; "
+            f"supported datasets: {list(_TUSHARE_DATASETS)}"
+        )
+    if selected and data_dir is None:
+        raise DatasetRegistrationError(
+            "tushare_data_dir is required when tushare_local_datasets is not empty"
+        )
+    return selected
 
 
 def initialize(**kwargs: Any) -> DataClient:

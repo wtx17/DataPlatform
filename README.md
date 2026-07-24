@@ -43,6 +43,21 @@ with initialize_data_client() as data:
     )
 ```
 
+Tushare 数据集可以按名称分别选择本地 Parquet 或远端 API。名单内的数据集从同一
+归档根目录读取，其余数据集继续使用远端 API：
+
+```python
+with initialize_data_client(
+    tushare_data_dir="/data/tushare",
+    tushare_local_datasets={"income", "balancesheet", "cashflow"},
+) as data:
+    income = data.get_table("income", ["total_revenue"])
+    forecast = data.get_table("forecast", ["p_change_min", "p_change_max"])
+```
+
+只传 `tushare_data_dir` 时仍会将全部 Tushare 数据集注册为本地数据集。本地
+`get_panel()` 为了交易日对齐，仍会通过配置的 Tushare 连接读取 `trade_cal`。
+
 全部数据集、可用方法、字段类型及字段含义见 [默认数据集手册](DATASETS.md)。
 
 字段说明维护在 `tools/dataset_descriptions.toml`。源码 catalog 发生变化后运行：

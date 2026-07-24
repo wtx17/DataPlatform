@@ -503,3 +503,55 @@ def test_local_initialization_registers_standard_names_without_token(
             end="2024-07-05",
         )
     client.close()
+
+
+def test_initialization_can_mix_local_and_remote_tushare_datasets(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = tmp_path / "archive"
+    write_archive(root, "income", [])
+    monkeypatch.delenv("MISSING_MIXED_TUSHARE_TOKEN", raising=False)
+
+    with initialize_data_client(
+        audit_dir=tmp_path / "audit",
+        register_clickhouse=False,
+        tushare_data_dir=root,
+        tushare_local_datasets={"income"},
+        tushare_connection="mixed",
+        tushare_token_env="MISSING_MIXED_TUSHARE_TOKEN",
+    ) as client:
+        local_table = client.get_table("income", ["total_revenue"])
+        assert local_table.num_rows == 0
+
+        with pytest.raises(BackendConnectionError, match="MISSING_MIXED_TUSHARE_TOKEN"):
+            client.get_table(
+                "balancesheet",
+                ["total_assets"],
+                start="2024-03-31",
+                end="2024-03-31",
+                instruments=["600000.SH"],
+            )
+
+
+@pytest.mark.parametrize(
+    ("data_dir", "local_datasets", "message"),
+    [
+        (None, {"income"}, "tushare_data_dir is required"),
+        (Path("/unused"), {"unknown"}, "Unsupported Tushare local datasets"),
+        (Path("/unused"), "income", "must be a collection"),
+        (Path("/unused"), ["income", 1], "only non-empty strings"),
+    ],
+)
+def test_mixed_initialization_rejects_invalid_local_selection(
+    tmp_path: Path,
+    data_dir: Path | None,
+    local_datasets: object,
+    message: str,
+) -> None:
+    with pytest.raises(DatasetRegistrationError, match=message):
+        initialize_data_client(
+            audit_dir=tmp_path / "audit",
+            register_clickhouse=False,
+            tushare_data_dir=data_dir,
+            tushare_local_datasets=local_datasets,  # type: ignore[arg-type]
+        )
