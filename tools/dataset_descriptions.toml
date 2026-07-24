@@ -1,0 +1,2153 @@
+# Handwritten dataset and field semantics. The generator validates every
+# dataset and field against the initialization specifications and local catalogs.
+
+[datasets.minghu_daily]
+title = "明湖股票日线"
+summary = "明湖汇`stock_base.daily`表描述。以 `date × code` 为键。使用`get_panel()`方法取宽表时，价格字段默认乘以 `hfq`；成交量、成交额、涨跌额和涨跌幅保持原值；股票编号自动附上交易所后缀（此点对所有明湖汇数据都一样）。"
+
+[datasets.minghu_daily.fields.code]
+description = "证券代码；返回时依据 `exg` 自动补 `.SZ`、`.SH` 或 `.BJ`。"
+
+[datasets.minghu_daily.fields.date]
+description = "交易日期。"
+
+[datasets.minghu_daily.fields.exg]
+description = "交易所编码：1 为深市，2 为沪市，3 为北交所。"
+
+[datasets.minghu_daily.fields.open]
+description = "开盘价；默认按 `hfq` 后复权。"
+
+[datasets.minghu_daily.fields.high]
+description = "最高价；默认按 `hfq` 后复权。"
+
+[datasets.minghu_daily.fields.low]
+description = "最低价；默认按 `hfq` 后复权。"
+
+[datasets.minghu_daily.fields.close]
+description = "收盘价；默认按 `hfq` 后复权。"
+
+[datasets.minghu_daily.fields.pclose]
+description = "昨收价"
+
+[datasets.minghu_daily.fields.change]
+description = "涨跌额"
+
+[datasets.minghu_daily.fields.pct_chg]
+description = "涨跌幅（未复权）"
+
+[datasets.minghu_daily.fields.volume]
+description = "成交量（股）"
+
+[datasets.minghu_daily.fields.amount]
+description = "成交额"
+
+[datasets.minghu_daily.fields.hfq]
+description = "复权因子"
+
+[datasets.minghu_daily.fields.ztprice]
+description = "涨停价。"
+
+[datasets.minghu_daily.fields.dtprice]
+description = "跌停价。"
+
+[datasets.minghu_daily.fields.omax_op]
+description = "集合可申报最大价格"
+
+[datasets.minghu_daily.fields.omin_op]
+description = "集合可申报最小价格"
+
+[datasets.minghu_index_daily]
+title = "明湖指数日线"
+summary = "明湖汇`index_base.daily`表描述。以 `date × code` 为键，没有价格复权因子，始终返回数据库原值。"
+
+[datasets.minghu_index_daily.fields.code]
+description = "证券代码，本表涵盖了 A 股市场的核心宽基与综合指数，包括上证指数（000001）、深证成指（399001）、深证综指（399106）、深证A指（399107）、创业板指（399006）、创业板综（399102）、中小板指（399005）、科创50（000688）、北证50（899050），以及跨市场的沪深300（000300/399300）、中证500（399905）、中证500等权（000982）和中证1000（000852）指数。"
+
+[datasets.minghu_index_daily.fields.date]
+description = "交易日期。"
+
+[datasets.minghu_index_daily.fields.exg]
+description = "交易所编码：1 为深市，2 为沪市"
+
+[datasets.minghu_index_daily.fields.open]
+description = "开盘价"
+
+[datasets.minghu_index_daily.fields.high]
+description = "最高价"
+
+[datasets.minghu_index_daily.fields.low]
+description = "最低价"
+
+[datasets.minghu_index_daily.fields.close]
+description = "收盘价"
+
+[datasets.minghu_index_daily.fields.pclose]
+description = "昨收价"
+
+[datasets.minghu_index_daily.fields.volume]
+description = "成交量（股）"
+
+[datasets.minghu_index_daily.fields.amount]
+description = "成交额"
+
+[datasets.minghu_m1]
+title = "明湖一分钟线"
+summary = "明湖汇`stock_base.m1`表描述。查询必须同时给出 `start` 和 `end`。"
+
+[datasets.minghu_m1.fields.code]
+description = "证券代码"
+
+[datasets.minghu_m1.fields.date_time]
+description = "日期详情"
+
+[datasets.minghu_m1.fields.exg]
+description = "交易所编码：1 为深市，2 为沪市，3 为北交所。"
+
+[datasets.minghu_m1.fields.time_int]
+description = "日期详情整形"
+
+[datasets.minghu_m1.fields.open]
+description = "分钟开盘价。"
+
+[datasets.minghu_m1.fields.close]
+description = "分钟收盘价。"
+
+[datasets.minghu_m1.fields.high]
+description = "分钟最高价。"
+
+[datasets.minghu_m1.fields.low]
+description = "分钟最低价。"
+
+[datasets.minghu_m1.fields.volume]
+description = "分钟成交量。"
+
+[datasets.minghu_m1.fields.amount]
+description = "分钟成交额。"
+
+[datasets.minghu_m1.fields.date]
+description = "日期"
+
+[datasets.minghu_tk]
+title = "明湖盘口快照"
+summary = "明湖汇`stock_base.tk`表描述。可能在同一秒内出现多行，只支持 `get_table()`；查询以 `time_int` 排序。"
+
+[datasets.minghu_tk.fields.code]
+description = "证券代码"
+
+[datasets.minghu_tk.fields.date_time]
+description = "日期详情, 业务时间, 精确到百分之一秒"
+
+[datasets.minghu_tk.fields.time_int]
+description = "date_time日期详情整形"
+
+[datasets.minghu_tk.fields.exg]
+description = "交易所编码：1 为深市，2 为沪市，3 为北交所。"
+
+[datasets.minghu_tk.fields.date]
+description = "日期"
+
+[datasets.minghu_tk.fields.pclose]
+description = "昨收价"
+
+[datasets.minghu_tk.fields.open]
+description = "开始价"
+
+[datasets.minghu_tk.fields.high]
+description = "最高价"
+
+[datasets.minghu_tk.fields.low]
+description = "最低价"
+
+[datasets.minghu_tk.fields.last]
+description = "最新价"
+
+[datasets.minghu_tk.fields.total_volume]
+description = "成交总量"
+
+[datasets.minghu_tk.fields.total_value]
+description = "成交总金额"
+
+[datasets.minghu_tk.fields.bid1]
+description = "买 1 档委托价。"
+
+[datasets.minghu_tk.fields.bid2]
+description = "买 2 档委托价。"
+
+[datasets.minghu_tk.fields.bid3]
+description = "买 3 档委托价。"
+
+[datasets.minghu_tk.fields.bid4]
+description = "买 4 档委托价。"
+
+[datasets.minghu_tk.fields.bid5]
+description = "买 5 档委托价。"
+
+[datasets.minghu_tk.fields.bid6]
+description = "买 6 档委托价。"
+
+[datasets.minghu_tk.fields.bid7]
+description = "买 7 档委托价。"
+
+[datasets.minghu_tk.fields.bid8]
+description = "买 8 档委托价。"
+
+[datasets.minghu_tk.fields.bid9]
+description = "买 9 档委托价。"
+
+[datasets.minghu_tk.fields.bid10]
+description = "买 10 档委托价。"
+
+[datasets.minghu_tk.fields.bidv1]
+description = "买 1 档委托量。"
+
+[datasets.minghu_tk.fields.bidv2]
+description = "买 2 档委托量。"
+
+[datasets.minghu_tk.fields.bidv3]
+description = "买 3 档委托量。"
+
+[datasets.minghu_tk.fields.bidv4]
+description = "买 4 档委托量。"
+
+[datasets.minghu_tk.fields.bidv5]
+description = "买 5 档委托量。"
+
+[datasets.minghu_tk.fields.bidv6]
+description = "买 6 档委托量。"
+
+[datasets.minghu_tk.fields.bidv7]
+description = "买 7 档委托量。"
+
+[datasets.minghu_tk.fields.bidv8]
+description = "买 8 档委托量。"
+
+[datasets.minghu_tk.fields.bidv9]
+description = "买 9 档委托量。"
+
+[datasets.minghu_tk.fields.bidv10]
+description = "买 10 档委托量。"
+
+[datasets.minghu_tk.fields.ask1]
+description = "卖 1 档委托价。"
+
+[datasets.minghu_tk.fields.ask2]
+description = "卖 2 档委托价。"
+
+[datasets.minghu_tk.fields.ask3]
+description = "卖 3 档委托价。"
+
+[datasets.minghu_tk.fields.ask4]
+description = "卖 4 档委托价。"
+
+[datasets.minghu_tk.fields.ask5]
+description = "卖 5 档委托价。"
+
+[datasets.minghu_tk.fields.ask6]
+description = "卖 6 档委托价。"
+
+[datasets.minghu_tk.fields.ask7]
+description = "卖 7 档委托价。"
+
+[datasets.minghu_tk.fields.ask8]
+description = "卖 8 档委托价。"
+
+[datasets.minghu_tk.fields.ask9]
+description = "卖 9 档委托价。"
+
+[datasets.minghu_tk.fields.ask10]
+description = "卖 10 档委托价。"
+
+[datasets.minghu_tk.fields.askv1]
+description = "卖 1 档委托量。"
+
+[datasets.minghu_tk.fields.askv2]
+description = "卖 2 档委托量。"
+
+[datasets.minghu_tk.fields.askv3]
+description = "卖 3 档委托量。"
+
+[datasets.minghu_tk.fields.askv4]
+description = "卖 4 档委托量。"
+
+[datasets.minghu_tk.fields.askv5]
+description = "卖 5 档委托量。"
+
+[datasets.minghu_tk.fields.askv6]
+description = "卖 6 档委托量。"
+
+[datasets.minghu_tk.fields.askv7]
+description = "卖 7 档委托量。"
+
+[datasets.minghu_tk.fields.askv8]
+description = "卖 8 档委托量。"
+
+[datasets.minghu_tk.fields.askv9]
+description = "卖 9 档委托量。"
+
+[datasets.minghu_tk.fields.askv10]
+description = "卖 10 档委托量。"
+
+[datasets.minghu_tk.fields.num_trades]
+description = "成交笔数"
+
+[datasets.minghu_tk.fields.trading_phase_code]
+description = "交易阶段代码。"
+
+[datasets.minghu_tk.fields.close]
+description = "收盘价"
+
+[datasets.minghu_tk.fields.ztprice]
+description = "涨停价。"
+
+[datasets.minghu_tk.fields.dtprice]
+description = "跌停价。"
+
+[datasets.minghu_zb]
+title = "明湖逐笔事件"
+summary = "明湖汇`stock_base.zb`表描述。只支持 `get_table()`。"
+
+[datasets.minghu_zb.fields.code]
+description = "证券代码"
+
+[datasets.minghu_zb.fields.date]
+description = "日期"
+
+[datasets.minghu_zb.fields.date_time]
+description = "日期详情,业务时间,精确到百分之一秒"
+
+[datasets.minghu_zb.fields.exg]
+description = "交易所编码：1 为深市，2 为沪市，3 为北交所。"
+
+[datasets.minghu_zb.fields.time_int]
+description = "date_time日期详情整形"
+
+[datasets.minghu_zb.fields.price]
+description = "价格"
+
+[datasets.minghu_zb.fields.volume]
+description = "委托数量"
+
+[datasets.minghu_zb.fields.side]
+description = "买卖标志,B-买单,S-卖单,G-借入,F-借出"
+
+[datasets.minghu_zb.fields.type]
+description = "订单类别,沪市为A-新增委托订单,D-删除委托订单,即撤单,深市为1-市价,2-限价,U - 本方最优"
+
+[datasets.minghu_zb.fields.trade_flag]
+description = "成交单子的内外盘标志:B-沪市外盘,主动买,S-沪市内盘,主动卖,N-沪市未知,F-深市成交,4-深市撤单"
+
+[datasets.minghu_zb.fields.chno]
+description = "频道代码，通道"
+
+[datasets.minghu_zb.fields.bidno]
+description = "成交单子的买方委托编号"
+
+[datasets.minghu_zb.fields.askno]
+description = "成交单子的卖方委托编号"
+
+[datasets.minghu_zb.fields.ordno]
+description = "委托单子的编号,sh的order_no,sz的app_seq_num,sz的成交单子也有,sh的成交单子无,默认为0"
+
+[datasets.minghu_zb.fields.seqno]
+description = "序列号,要求连续递增唯一,sh的业务序列号biz_idx,sz的委托索引app_seq_num"
+
+[datasets.minghu_zb.fields.ctype]
+description = "type,side,flag的合并, 1是新增限价委托,2是新增市价委托,3是新增本方最优,4是撤单,5是成交"
+
+[datasets.minghu_zb.fields.cbidno]
+description = "合并的成交单子的买方委托编号"
+
+[datasets.minghu_zb.fields.caskno]
+description = "合并的成交单子的买方委托编号"
+
+[datasets.income]
+title = "Tushare 利润表"
+summary = "利润表逻辑数据集。`get_table()` 按报告期保留全部公告与修订；`get_panel()` 以 `f_ann_date` 对齐交易日并构造 PIT 状态。"
+
+[datasets.income.fields.ts_code]
+description = "带交易所后缀的证券代码。"
+
+[datasets.income.fields.ann_date]
+description = "公告日期。"
+
+[datasets.income.fields.f_ann_date]
+description = "实际披露日期，也是利润表 PIT 的 disclosure date。"
+
+[datasets.income.fields.end_date]
+description = "财务报告期。"
+
+[datasets.income.fields.report_type]
+description = "报告类型。"
+
+[datasets.income.fields.comp_type]
+description = "公司类型。"
+
+[datasets.income.fields.end_type]
+description = "报告期类型。"
+
+[datasets.income.fields.basic_eps]
+description = "基本每股收益。"
+
+[datasets.income.fields.diluted_eps]
+description = "稀释每股收益。"
+
+[datasets.income.fields.total_revenue]
+description = "营业总收入。"
+
+[datasets.income.fields.revenue]
+description = "营业收入。"
+
+[datasets.income.fields.int_income]
+description = "利息收入（银行业务）。"
+
+[datasets.income.fields.prem_earned]
+description = "已赚保费（保险业务）。"
+
+[datasets.income.fields.comm_income]
+description = "手续费及佣金收入。"
+
+[datasets.income.fields.n_commis_income]
+description = "手续费及佣金净收入。"
+
+[datasets.income.fields.n_oth_income]
+description = "其他经营净收益。"
+
+[datasets.income.fields.n_oth_b_income]
+description = "其他业务净收益。"
+
+[datasets.income.fields.prem_income]
+description = "保险业务收入。"
+
+[datasets.income.fields.out_prem]
+description = "分出保费。"
+
+[datasets.income.fields.une_prem_reser]
+description = "未到期责任准备金。"
+
+[datasets.income.fields.reins_income]
+description = "摊回分保收入。"
+
+[datasets.income.fields.n_sec_tb_income]
+description = "代理买卖证券业务净收入。"
+
+[datasets.income.fields.n_sec_uw_income]
+description = "证券承销业务净收入。"
+
+[datasets.income.fields.n_asset_mg_income]
+description = "受托客户资产管理业务净收入。"
+
+[datasets.income.fields.oth_b_income]
+description = "其他业务收入。"
+
+[datasets.income.fields.fv_value_chg_gain]
+description = "公允价值变动收益。"
+
+[datasets.income.fields.invest_income]
+description = "投资收益。"
+
+[datasets.income.fields.ass_invest_income]
+description = "对联营和合营企业的投资收益。"
+
+[datasets.income.fields.forex_gain]
+description = "汇兑收益。"
+
+[datasets.income.fields.total_cogs]
+description = "营业总成本。"
+
+[datasets.income.fields.oper_cost]
+description = "营业成本。"
+
+[datasets.income.fields.int_exp]
+description = "利息支出。"
+
+[datasets.income.fields.comm_exp]
+description = "手续费及佣金支出。"
+
+[datasets.income.fields.biz_tax_surchg]
+description = "营业税金及附加。"
+
+[datasets.income.fields.sell_exp]
+description = "销售费用。"
+
+[datasets.income.fields.admin_exp]
+description = "管理费用。"
+
+[datasets.income.fields.fin_exp]
+description = "财务费用。"
+
+[datasets.income.fields.assets_impair_loss]
+description = "资产减值损失。"
+
+[datasets.income.fields.prem_refund]
+description = "退保金。"
+
+[datasets.income.fields.compens_payout]
+description = "赔付总支出。"
+
+[datasets.income.fields.reser_insur_liab]
+description = "提取保险责任准备金。"
+
+[datasets.income.fields.div_payt]
+description = "保户红利支出。"
+
+[datasets.income.fields.reins_exp]
+description = "分保费用。"
+
+[datasets.income.fields.oper_exp]
+description = "营业支出。"
+
+[datasets.income.fields.compens_payout_refu]
+description = "摊回赔付支出。"
+
+[datasets.income.fields.insur_reser_refu]
+description = "摊回保险责任准备金。"
+
+[datasets.income.fields.reins_cost_refund]
+description = "摊回分保费用。"
+
+[datasets.income.fields.other_bus_cost]
+description = "其他业务成本。"
+
+[datasets.income.fields.operate_profit]
+description = "营业利润。"
+
+[datasets.income.fields.non_oper_income]
+description = "营业外收入。"
+
+[datasets.income.fields.non_oper_exp]
+description = "营业外支出。"
+
+[datasets.income.fields.nca_disploss]
+description = "非流动资产处置损失。"
+
+[datasets.income.fields.total_profit]
+description = "利润总额。"
+
+[datasets.income.fields.income_tax]
+description = "所得税费用。"
+
+[datasets.income.fields.n_income]
+description = "净利润（含少数股东损益）。"
+
+[datasets.income.fields.n_income_attr_p]
+description = "归属于母公司股东的净利润。"
+
+[datasets.income.fields.minority_gain]
+description = "少数股东损益。"
+
+[datasets.income.fields.oth_compr_income]
+description = "其他综合收益。"
+
+[datasets.income.fields.t_compr_income]
+description = "综合收益总额。"
+
+[datasets.income.fields.compr_inc_attr_p]
+description = "归属于母公司股东的综合收益。"
+
+[datasets.income.fields.compr_inc_attr_m_s]
+description = "归属于少数股东的综合收益。"
+
+[datasets.income.fields.ebit]
+description = "息税前利润。"
+
+[datasets.income.fields.ebitda]
+description = "息税折旧摊销前利润。"
+
+[datasets.income.fields.insurance_exp]
+description = "保险合同费用。"
+
+[datasets.income.fields.undist_profit]
+description = "年初未分配利润。"
+
+[datasets.income.fields.distable_profit]
+description = "可供分配利润。"
+
+[datasets.income.fields.rd_exp]
+description = "研发费用。"
+
+[datasets.income.fields.fin_exp_int_exp]
+description = "财务费用中的利息支出。"
+
+[datasets.income.fields.fin_exp_int_inc]
+description = "财务费用中的利息收入。"
+
+[datasets.income.fields.transfer_surplus_rese]
+description = "盈余公积转入。"
+
+[datasets.income.fields.transfer_housing_imprest]
+description = "住房周转金转入。"
+
+[datasets.income.fields.transfer_oth]
+description = "其他转入。"
+
+[datasets.income.fields.adj_lossgain]
+description = "调整以前年度损益。"
+
+[datasets.income.fields.withdra_legal_surplus]
+description = "提取法定盈余公积。"
+
+[datasets.income.fields.withdra_legal_pubfund]
+description = "提取法定公益金。"
+
+[datasets.income.fields.withdra_biz_devfund]
+description = "提取企业发展基金。"
+
+[datasets.income.fields.withdra_rese_fund]
+description = "提取储备基金。"
+
+[datasets.income.fields.withdra_oth_ersu]
+description = "提取任意盈余公积。"
+
+[datasets.income.fields.workers_welfare]
+description = "职工奖金福利。"
+
+[datasets.income.fields.distr_profit_shrhder]
+description = "可供股东分配的利润。"
+
+[datasets.income.fields.prfshare_payable_dvd]
+description = "应付优先股股利。"
+
+[datasets.income.fields.comshare_payable_dvd]
+description = "应付普通股股利。"
+
+[datasets.income.fields.capit_comstock_div]
+description = "转作股本的普通股股利。"
+
+[datasets.income.fields.continued_net_profit]
+description = "持续经营净利润。"
+
+[datasets.income.fields.update_flag]
+description = "更新或修订标记。"
+
+[datasets.balancesheet]
+title = "Tushare 资产负债表"
+summary = "资产负债表逻辑数据集；原始表保留修订，PIT 宽表使用 `f_ann_date` 作为披露日期。"
+
+[datasets.balancesheet.fields.ts_code]
+description = "带交易所后缀的证券代码。"
+
+[datasets.balancesheet.fields.ann_date]
+description = "公告日期。"
+
+[datasets.balancesheet.fields.f_ann_date]
+description = "实际披露日期，也是 PIT 的 disclosure date。"
+
+[datasets.balancesheet.fields.end_date]
+description = "财务报告期。"
+
+[datasets.balancesheet.fields.report_type]
+description = "报告类型。"
+
+[datasets.balancesheet.fields.comp_type]
+description = "公司类型。"
+
+[datasets.balancesheet.fields.end_type]
+description = "报告期类型。"
+
+[datasets.balancesheet.fields.total_share]
+description = "股份总数。"
+
+[datasets.balancesheet.fields.cap_rese]
+description = "资本公积金。"
+
+[datasets.balancesheet.fields.undistr_porfit]
+description = "未分配利润。"
+
+[datasets.balancesheet.fields.surplus_rese]
+description = "盈余公积金。"
+
+[datasets.balancesheet.fields.special_rese]
+description = "专项储备。"
+
+[datasets.balancesheet.fields.money_cap]
+description = "货币资金。"
+
+[datasets.balancesheet.fields.trad_asset]
+description = "交易性金融资产。"
+
+[datasets.balancesheet.fields.notes_receiv]
+description = "应收票据。"
+
+[datasets.balancesheet.fields.accounts_receiv]
+description = "应收账款。"
+
+[datasets.balancesheet.fields.oth_receiv]
+description = "其他应收款。"
+
+[datasets.balancesheet.fields.prepayment]
+description = "预付款项。"
+
+[datasets.balancesheet.fields.div_receiv]
+description = "应收股利。"
+
+[datasets.balancesheet.fields.int_receiv]
+description = "应收利息。"
+
+[datasets.balancesheet.fields.inventories]
+description = "存货。"
+
+[datasets.balancesheet.fields.amor_exp]
+description = "待摊费用。"
+
+[datasets.balancesheet.fields.nca_within_1y]
+description = "一年内到期的非流动资产。"
+
+[datasets.balancesheet.fields.sett_rsrv]
+description = "结算备付金。"
+
+[datasets.balancesheet.fields.loanto_oth_bank_fi]
+description = "拆出资金。"
+
+[datasets.balancesheet.fields.premium_receiv]
+description = "应收保费。"
+
+[datasets.balancesheet.fields.reinsur_receiv]
+description = "应收分保账款。"
+
+[datasets.balancesheet.fields.reinsur_res_receiv]
+description = "应收分保合同准备金。"
+
+[datasets.balancesheet.fields.pur_resale_fa]
+description = "买入返售金融资产。"
+
+[datasets.balancesheet.fields.oth_cur_assets]
+description = "其他流动资产。"
+
+[datasets.balancesheet.fields.total_cur_assets]
+description = "流动资产合计。"
+
+[datasets.balancesheet.fields.fa_avail_for_sale]
+description = "可供出售金融资产。"
+
+[datasets.balancesheet.fields.htm_invest]
+description = "持有至到期投资。"
+
+[datasets.balancesheet.fields.lt_eqt_invest]
+description = "长期股权投资。"
+
+[datasets.balancesheet.fields.invest_real_estate]
+description = "投资性房地产。"
+
+[datasets.balancesheet.fields.time_deposits]
+description = "定期存款。"
+
+[datasets.balancesheet.fields.oth_assets]
+description = "其他资产。"
+
+[datasets.balancesheet.fields.lt_rec]
+description = "长期应收款。"
+
+[datasets.balancesheet.fields.fix_assets]
+description = "固定资产。"
+
+[datasets.balancesheet.fields.cip]
+description = "在建工程。"
+
+[datasets.balancesheet.fields.const_materials]
+description = "工程物资。"
+
+[datasets.balancesheet.fields.fixed_assets_disp]
+description = "固定资产清理。"
+
+[datasets.balancesheet.fields.produc_bio_assets]
+description = "生产性生物资产。"
+
+[datasets.balancesheet.fields.oil_and_gas_assets]
+description = "油气资产。"
+
+[datasets.balancesheet.fields.intan_assets]
+description = "无形资产。"
+
+[datasets.balancesheet.fields.r_and_d]
+description = "研发支出。"
+
+[datasets.balancesheet.fields.goodwill]
+description = "商誉。"
+
+[datasets.balancesheet.fields.lt_amor_exp]
+description = "长期待摊费用。"
+
+[datasets.balancesheet.fields.defer_tax_assets]
+description = "递延所得税资产。"
+
+[datasets.balancesheet.fields.decr_in_disbur]
+description = "发放贷款及垫款。"
+
+[datasets.balancesheet.fields.oth_nca]
+description = "其他非流动资产。"
+
+[datasets.balancesheet.fields.total_nca]
+description = "非流动资产合计。"
+
+[datasets.balancesheet.fields.cash_reser_cb]
+description = "现金及存放中央银行款项。"
+
+[datasets.balancesheet.fields.depos_in_oth_bfi]
+description = "存放同业及其他金融机构款项。"
+
+[datasets.balancesheet.fields.prec_metals]
+description = "贵金属。"
+
+[datasets.balancesheet.fields.deriv_assets]
+description = "衍生金融资产。"
+
+[datasets.balancesheet.fields.rr_reins_une_prem]
+description = "应收分保未到期责任准备金。"
+
+[datasets.balancesheet.fields.rr_reins_outstd_cla]
+description = "应收分保未决赔款准备金。"
+
+[datasets.balancesheet.fields.rr_reins_lins_liab]
+description = "应收分保寿险责任准备金。"
+
+[datasets.balancesheet.fields.rr_reins_lthins_liab]
+description = "应收分保长期健康险责任准备金。"
+
+[datasets.balancesheet.fields.refund_depos]
+description = "存出保证金。"
+
+[datasets.balancesheet.fields.ph_pledge_loans]
+description = "保户质押贷款。"
+
+[datasets.balancesheet.fields.refund_cap_depos]
+description = "存出资本保证金。"
+
+[datasets.balancesheet.fields.indep_acct_assets]
+description = "独立账户资产。"
+
+[datasets.balancesheet.fields.client_depos]
+description = "其中：客户资金。"
+
+[datasets.balancesheet.fields.client_prov]
+description = "其中：客户备付金。"
+
+[datasets.balancesheet.fields.transac_seat_fee]
+description = "交易席位费。"
+
+[datasets.balancesheet.fields.invest_as_receiv]
+description = "应收款项类投资。"
+
+[datasets.balancesheet.fields.total_assets]
+description = "资产总计。"
+
+[datasets.balancesheet.fields.lt_borr]
+description = "长期借款。"
+
+[datasets.balancesheet.fields.st_borr]
+description = "短期借款。"
+
+[datasets.balancesheet.fields.cb_borr]
+description = "向中央银行借款。"
+
+[datasets.balancesheet.fields.depos_ib_deposits]
+description = "吸收存款及同业存放。"
+
+[datasets.balancesheet.fields.loan_oth_bank]
+description = "拆入资金。"
+
+[datasets.balancesheet.fields.trading_fl]
+description = "交易性金融负债。"
+
+[datasets.balancesheet.fields.notes_payable]
+description = "应付票据。"
+
+[datasets.balancesheet.fields.acct_payable]
+description = "应付账款。"
+
+[datasets.balancesheet.fields.adv_receipts]
+description = "预收款项。"
+
+[datasets.balancesheet.fields.sold_for_repur_fa]
+description = "卖出回购金融资产款。"
+
+[datasets.balancesheet.fields.comm_payable]
+description = "应付手续费及佣金。"
+
+[datasets.balancesheet.fields.payroll_payable]
+description = "应付职工薪酬。"
+
+[datasets.balancesheet.fields.taxes_payable]
+description = "应交税费。"
+
+[datasets.balancesheet.fields.int_payable]
+description = "应付利息。"
+
+[datasets.balancesheet.fields.div_payable]
+description = "应付股利。"
+
+[datasets.balancesheet.fields.oth_payable]
+description = "其他应付款。"
+
+[datasets.balancesheet.fields.acc_exp]
+description = "预提费用。"
+
+[datasets.balancesheet.fields.deferred_inc]
+description = "递延收益。"
+
+[datasets.balancesheet.fields.st_bonds_payable]
+description = "应付短期债券。"
+
+[datasets.balancesheet.fields.payable_to_reinsurer]
+description = "应付分保账款。"
+
+[datasets.balancesheet.fields.rsrv_insur_cont]
+description = "保险合同准备金。"
+
+[datasets.balancesheet.fields.acting_trading_sec]
+description = "代理买卖证券款。"
+
+[datasets.balancesheet.fields.acting_uw_sec]
+description = "代理承销证券款。"
+
+[datasets.balancesheet.fields.non_cur_liab_due_1y]
+description = "一年内到期的非流动负债。"
+
+[datasets.balancesheet.fields.oth_cur_liab]
+description = "其他流动负债。"
+
+[datasets.balancesheet.fields.total_cur_liab]
+description = "流动负债合计。"
+
+[datasets.balancesheet.fields.bond_payable]
+description = "应付债券。"
+
+[datasets.balancesheet.fields.lt_payable]
+description = "长期应付款。"
+
+[datasets.balancesheet.fields.specific_payables]
+description = "专项应付款。"
+
+[datasets.balancesheet.fields.estimated_liab]
+description = "预计负债。"
+
+[datasets.balancesheet.fields.defer_tax_liab]
+description = "递延所得税负债。"
+
+[datasets.balancesheet.fields.defer_inc_non_cur_liab]
+description = "递延收益——非流动负债。"
+
+[datasets.balancesheet.fields.oth_ncl]
+description = "其他非流动负债。"
+
+[datasets.balancesheet.fields.total_ncl]
+description = "非流动负债合计。"
+
+[datasets.balancesheet.fields.depos_oth_bfi]
+description = "同业及其他金融机构存放款项。"
+
+[datasets.balancesheet.fields.deriv_liab]
+description = "衍生金融负债。"
+
+[datasets.balancesheet.fields.depos]
+description = "吸收存款。"
+
+[datasets.balancesheet.fields.agency_bus_liab]
+description = "代理业务负债。"
+
+[datasets.balancesheet.fields.oth_liab]
+description = "其他负债。"
+
+[datasets.balancesheet.fields.prem_receiv_adva]
+description = "预收保费。"
+
+[datasets.balancesheet.fields.depos_received]
+description = "存入保证金。"
+
+[datasets.balancesheet.fields.ph_invest]
+description = "保户投资款。"
+
+[datasets.balancesheet.fields.reser_une_prem]
+description = "未到期责任准备金。"
+
+[datasets.balancesheet.fields.reser_outstd_claims]
+description = "保险责任准备金——未决赔款准备金。"
+
+[datasets.balancesheet.fields.reser_lins_liab]
+description = "寿险责任准备金。"
+
+[datasets.balancesheet.fields.reser_lthins_liab]
+description = "长期健康险责任准备金。"
+
+[datasets.balancesheet.fields.indept_acc_liab]
+description = "独立账户负债。"
+
+[datasets.balancesheet.fields.pledge_borr]
+description = "其中：质押借款。"
+
+[datasets.balancesheet.fields.indem_payable]
+description = "应付赔付款。"
+
+[datasets.balancesheet.fields.policy_div_payable]
+description = "应付保单红利。"
+
+[datasets.balancesheet.fields.total_liab]
+description = "负债合计。"
+
+[datasets.balancesheet.fields.treasury_share]
+description = "减：库存股。"
+
+[datasets.balancesheet.fields.ordin_risk_reser]
+description = "一般风险准备。"
+
+[datasets.balancesheet.fields.forex_differ]
+description = "外币报表折算差额。"
+
+[datasets.balancesheet.fields.invest_loss_unconf]
+description = "未确认的投资损失。"
+
+[datasets.balancesheet.fields.minority_int]
+description = "少数股东权益。"
+
+[datasets.balancesheet.fields.total_hldr_eqy_exc_min_int]
+description = "归属于母公司股东权益合计。"
+
+[datasets.balancesheet.fields.total_hldr_eqy_inc_min_int]
+description = "所有者权益合计（含少数股东权益）。"
+
+[datasets.balancesheet.fields.total_liab_hldr_eqy]
+description = "负债及所有者权益总计。"
+
+[datasets.balancesheet.fields.lt_payroll_payable]
+description = "长期应付职工薪酬。"
+
+[datasets.balancesheet.fields.oth_comp_income]
+description = "其他综合收益。"
+
+[datasets.balancesheet.fields.oth_eqt_tools]
+description = "其他权益工具。"
+
+[datasets.balancesheet.fields.oth_eqt_tools_p_shr]
+description = "其中：优先股。"
+
+[datasets.balancesheet.fields.lending_funds]
+description = "发放贷款及垫款。"
+
+[datasets.balancesheet.fields.acc_receivable]
+description = "应收款项类资产。"
+
+[datasets.balancesheet.fields.st_fin_payable]
+description = "短期应付债券。"
+
+[datasets.balancesheet.fields.payables]
+description = "应付款项。"
+
+[datasets.balancesheet.fields.hfs_assets]
+description = "持有待售资产。"
+
+[datasets.balancesheet.fields.hfs_sales]
+description = "持有待售负债。"
+
+[datasets.balancesheet.fields.cost_fin_assets]
+description = "以公允价值计量且其变动计入其他综合收益的金融资产（成本）。"
+
+[datasets.balancesheet.fields.fair_value_fin_assets]
+description = "以公允价值计量且其变动计入其他综合收益的金融资产（公允价值）。"
+
+[datasets.balancesheet.fields.cip_total]
+description = "在建工程（合计）。"
+
+[datasets.balancesheet.fields.oth_pay_total]
+description = "其他应付款合计。"
+
+[datasets.balancesheet.fields.long_pay_total]
+description = "长期应付款合计。"
+
+[datasets.balancesheet.fields.debt_invest]
+description = "债权投资。"
+
+[datasets.balancesheet.fields.oth_debt_invest]
+description = "其他债权投资。"
+
+[datasets.balancesheet.fields.contract_assets]
+description = "合同资产。"
+
+[datasets.balancesheet.fields.contract_liab]
+description = "合同负债。"
+
+[datasets.balancesheet.fields.accounts_receiv_bill]
+description = "应收款项融资（含应收票据）。"
+
+[datasets.balancesheet.fields.accounts_pay]
+description = "应付及预收款项。"
+
+[datasets.balancesheet.fields.oth_rcv_total]
+description = "其他应收款合计。"
+
+[datasets.balancesheet.fields.fix_assets_total]
+description = "固定资产合计。"
+
+[datasets.balancesheet.fields.update_flag]
+description = "更新或修订标记。"
+
+[datasets.cashflow]
+title = "Tushare 现金流量表"
+summary = "现金流量表逻辑数据集；原始表保留修订，PIT 宽表使用 `f_ann_date` 作为披露日期。"
+
+[datasets.cashflow.fields.ts_code]
+description = "带交易所后缀的证券代码。"
+
+[datasets.cashflow.fields.ann_date]
+description = "公告日期。"
+
+[datasets.cashflow.fields.f_ann_date]
+description = "实际披露日期，也是 PIT 的 disclosure date。"
+
+[datasets.cashflow.fields.end_date]
+description = "财务报告期。"
+
+[datasets.cashflow.fields.comp_type]
+description = "公司类型。"
+
+[datasets.cashflow.fields.report_type]
+description = "报告类型。"
+
+[datasets.cashflow.fields.end_type]
+description = "报告期类型。"
+
+[datasets.cashflow.fields.net_profit]
+description = "净利润。"
+
+[datasets.cashflow.fields.finan_exp]
+description = "财务费用（付现部分调整项）。"
+
+[datasets.cashflow.fields.c_fr_sale_sg]
+description = "销售商品、提供劳务收到的现金。"
+
+[datasets.cashflow.fields.recp_tax_rends]
+description = "收到的税费返还。"
+
+[datasets.cashflow.fields.n_depos_incr_fi]
+description = "客户存款和同业存放款项净增加额。"
+
+[datasets.cashflow.fields.n_incr_loans_cb]
+description = "向中央银行借款净增加额。"
+
+[datasets.cashflow.fields.n_inc_borr_oth_fi]
+description = "向其他金融机构拆入资金净增加额。"
+
+[datasets.cashflow.fields.prem_fr_orig_contr]
+description = "收到原保险合同保费取得的现金。"
+
+[datasets.cashflow.fields.n_incr_insured_dep]
+description = "保户储金净增加额。"
+
+[datasets.cashflow.fields.n_reinsur_prem]
+description = "收到再保业务现金净额。"
+
+[datasets.cashflow.fields.n_incr_disp_tfa]
+description = "处置交易性金融资产净增加额。"
+
+[datasets.cashflow.fields.ifc_cash_incr]
+description = "收取利息、手续费及佣金的现金。"
+
+[datasets.cashflow.fields.n_incr_disp_faas]
+description = "处置可供出售金融资产净增加额。"
+
+[datasets.cashflow.fields.n_incr_loans_oth_bank]
+description = "拆入资金及卖出回购金融资产款净增加额。"
+
+[datasets.cashflow.fields.n_cap_incr_repur]
+description = "回购业务资金净增加额。"
+
+[datasets.cashflow.fields.c_fr_oth_operate_a]
+description = "收到其他与经营活动有关的现金。"
+
+[datasets.cashflow.fields.c_inf_fr_operate_a]
+description = "经营活动现金流入小计。"
+
+[datasets.cashflow.fields.c_paid_goods_s]
+description = "购买商品、接受劳务支付的现金。"
+
+[datasets.cashflow.fields.c_paid_to_for_empl]
+description = "支付给职工以及为职工支付的现金。"
+
+[datasets.cashflow.fields.c_paid_for_taxes]
+description = "支付的各项税费。"
+
+[datasets.cashflow.fields.n_incr_clt_loan_adv]
+description = "客户贷款及垫款净增加额。"
+
+[datasets.cashflow.fields.n_incr_dep_cbob]
+description = "存放中央银行和同业款项净增加额。"
+
+[datasets.cashflow.fields.c_pay_claims_orig_inco]
+description = "支付原保险合同赔付款项的现金。"
+
+[datasets.cashflow.fields.pay_handling_chrg]
+description = "支付手续费及佣金的现金。"
+
+[datasets.cashflow.fields.pay_comm_insur_plcy]
+description = "支付保单红利的现金。"
+
+[datasets.cashflow.fields.oth_cash_pay_oper_act]
+description = "支付其他与经营活动有关的现金。"
+
+[datasets.cashflow.fields.st_cash_out_act]
+description = "经营活动现金流出小计。"
+
+[datasets.cashflow.fields.n_cashflow_act]
+description = "经营活动产生的现金流量净额。"
+
+[datasets.cashflow.fields.oth_recp_ral_inv_act]
+description = "收到其他与投资活动有关的现金。"
+
+[datasets.cashflow.fields.c_disp_withdrwl_invest]
+description = "收回投资收到的现金。"
+
+[datasets.cashflow.fields.c_recp_return_invest]
+description = "取得投资收益收到的现金。"
+
+[datasets.cashflow.fields.n_recp_disp_fiolta]
+description = "处置固定资产、无形资产和其他长期资产收回的现金净额。"
+
+[datasets.cashflow.fields.n_recp_disp_sobu]
+description = "处置子公司及其他营业单位收到的现金净额。"
+
+[datasets.cashflow.fields.stot_inflows_inv_act]
+description = "投资活动现金流入小计。"
+
+[datasets.cashflow.fields.c_pay_acq_const_fiolta]
+description = "购建固定资产、无形资产和其他长期资产支付的现金。"
+
+[datasets.cashflow.fields.c_paid_invest]
+description = "投资支付的现金。"
+
+[datasets.cashflow.fields.n_disp_subs_oth_biz]
+description = "取得子公司及其他营业单位支付的现金净额。"
+
+[datasets.cashflow.fields.oth_pay_ral_inv_act]
+description = "支付其他与投资活动有关的现金。"
+
+[datasets.cashflow.fields.n_incr_pledge_loan]
+description = "质押贷款净增加额。"
+
+[datasets.cashflow.fields.stot_out_inv_act]
+description = "投资活动现金流出小计。"
+
+[datasets.cashflow.fields.n_cashflow_inv_act]
+description = "投资活动产生的现金流量净额。"
+
+[datasets.cashflow.fields.c_recp_borrow]
+description = "吸收投资收到的现金。"
+
+[datasets.cashflow.fields.proc_issue_bonds]
+description = "取得借款收到的现金。"
+
+[datasets.cashflow.fields.oth_cash_recp_ral_fnc_act]
+description = "收到其他与筹资活动有关的现金。"
+
+[datasets.cashflow.fields.stot_cash_in_fnc_act]
+description = "筹资活动现金流入小计。"
+
+[datasets.cashflow.fields.free_cashflow]
+description = "企业自由现金流量。"
+
+[datasets.cashflow.fields.c_prepay_amt_borr]
+description = "发行债券收到的现金。"
+
+[datasets.cashflow.fields.c_pay_dist_dpcp_int_exp]
+description = "分配股利、利润或偿付利息支付的现金。"
+
+[datasets.cashflow.fields.incl_dvd_profit_paid_sc_ms]
+description = "其中：子公司支付给少数股东的股利、利润。"
+
+[datasets.cashflow.fields.oth_cashpay_ral_fnc_act]
+description = "支付其他与筹资活动有关的现金。"
+
+[datasets.cashflow.fields.stot_cashout_fnc_act]
+description = "筹资活动现金流出小计。"
+
+[datasets.cashflow.fields.n_cash_flows_fnc_act]
+description = "筹资活动产生的现金流量净额。"
+
+[datasets.cashflow.fields.eff_fx_flu_cash]
+description = "汇率变动对现金的影响。"
+
+[datasets.cashflow.fields.n_incr_cash_cash_equ]
+description = "现金及现金等价物净增加额。"
+
+[datasets.cashflow.fields.c_cash_equ_beg_period]
+description = "期初现金及现金等价物余额。"
+
+[datasets.cashflow.fields.c_cash_equ_end_period]
+description = "期末现金及现金等价物余额。"
+
+[datasets.cashflow.fields.c_recp_cap_contrib]
+description = "其中：吸收投资收到的现金（资本投入）。"
+
+[datasets.cashflow.fields.incl_cash_rec_saims]
+description = "其中：子公司吸收少数股东投资收到的现金。"
+
+[datasets.cashflow.fields.uncon_invest_loss]
+description = "未确认的投资损失（间接法调整项）。"
+
+[datasets.cashflow.fields.prov_depr_assets]
+description = "资产减值准备（间接法）。"
+
+[datasets.cashflow.fields.depr_fa_coga_dpba]
+description = "固定资产折旧、油气资产折耗、生产性生物资产折旧。"
+
+[datasets.cashflow.fields.amort_intang_assets]
+description = "无形资产摊销。"
+
+[datasets.cashflow.fields.lt_amort_deferred_exp]
+description = "长期待摊费用摊销。"
+
+[datasets.cashflow.fields.decr_deferred_exp]
+description = "待摊费用的减少（间接法）。"
+
+[datasets.cashflow.fields.incr_acc_exp]
+description = "预提费用的增加（间接法）。"
+
+[datasets.cashflow.fields.loss_disp_fiolta]
+description = "处置固定资产、无形资产和其他长期资产的损失。"
+
+[datasets.cashflow.fields.loss_scr_fa]
+description = "固定资产报废损失。"
+
+[datasets.cashflow.fields.loss_fv_chg]
+description = "公允价值变动损失。"
+
+[datasets.cashflow.fields.invest_loss]
+description = "投资损失（间接法）。"
+
+[datasets.cashflow.fields.decr_def_inc_tax_assets]
+description = "递延所得税资产减少。"
+
+[datasets.cashflow.fields.incr_def_inc_tax_liab]
+description = "递延所得税负债增加。"
+
+[datasets.cashflow.fields.decr_inventories]
+description = "存货的减少（间接法）。"
+
+[datasets.cashflow.fields.decr_oper_payable]
+description = "经营性应收项目的减少。"
+
+[datasets.cashflow.fields.incr_oper_payable]
+description = "经营性应付项目的增加。"
+
+[datasets.cashflow.fields.others]
+description = "其他（间接法）。"
+
+[datasets.cashflow.fields.im_net_cashflow_oper_act]
+description = "经营活动产生的现金流量净额（间接法）。"
+
+[datasets.cashflow.fields.conv_debt_into_cap]
+description = "债务转为资本。"
+
+[datasets.cashflow.fields.conv_copbonds_due_within_1y]
+description = "一年内到期的可转换公司债券。"
+
+[datasets.cashflow.fields.fa_fnc_leases]
+description = "融资租入固定资产。"
+
+[datasets.cashflow.fields.im_n_incr_cash_equ]
+description = "现金及现金等价物净增加额（间接法）。"
+
+[datasets.cashflow.fields.net_dism_capital_add]
+description = "筹资净额相关调整：减少注册资本。"
+
+[datasets.cashflow.fields.net_cash_rece_sec]
+description = "收到与筹资活动相关的现金净额。"
+
+[datasets.cashflow.fields.credit_impa_loss]
+description = "信用减值损失。"
+
+[datasets.cashflow.fields.use_right_asset_dep]
+description = "使用权资产折旧。"
+
+[datasets.cashflow.fields.oth_loss_asset]
+description = "其他资产减值损失。"
+
+[datasets.cashflow.fields.end_bal_cash]
+description = "期末现金余额。"
+
+[datasets.cashflow.fields.beg_bal_cash]
+description = "期初现金余额。"
+
+[datasets.cashflow.fields.end_bal_cash_equ]
+description = "期末现金等价物余额。"
+
+[datasets.cashflow.fields.beg_bal_cash_equ]
+description = "期初现金等价物余额。"
+
+[datasets.cashflow.fields.update_flag]
+description = "更新或修订标记。"
+
+[datasets.fina_indicator]
+title = "Tushare 财务指标"
+summary = "财务指标逻辑数据集。该家族没有 `f_ann_date`，PIT 宽表使用 `ann_date`。"
+
+[datasets.fina_indicator.fields.ts_code]
+description = "带交易所后缀的证券代码。"
+
+[datasets.fina_indicator.fields.ann_date]
+description = "公告日期，也是 PIT 的 disclosure date。"
+
+[datasets.fina_indicator.fields.end_date]
+description = "财务报告期。"
+
+[datasets.fina_indicator.fields.eps]
+description = "基本每股收益。"
+
+[datasets.fina_indicator.fields.dt_eps]
+description = "稀释每股收益。"
+
+[datasets.fina_indicator.fields.total_revenue_ps]
+description = "每股营业总收入。"
+
+[datasets.fina_indicator.fields.revenue_ps]
+description = "每股营业收入。"
+
+[datasets.fina_indicator.fields.capital_rese_ps]
+description = "每股资本公积。"
+
+[datasets.fina_indicator.fields.surplus_rese_ps]
+description = "每股盈余公积。"
+
+[datasets.fina_indicator.fields.undist_profit_ps]
+description = "每股未分配利润。"
+
+[datasets.fina_indicator.fields.extra_item]
+description = "非经常性损益。"
+
+[datasets.fina_indicator.fields.profit_dedt]
+description = "扣除非经常性损益后的净利润。"
+
+[datasets.fina_indicator.fields.gross_margin]
+description = "销售毛利率。"
+
+[datasets.fina_indicator.fields.current_ratio]
+description = "流动比率。"
+
+[datasets.fina_indicator.fields.quick_ratio]
+description = "速动比率。"
+
+[datasets.fina_indicator.fields.cash_ratio]
+description = "现金比率。"
+
+[datasets.fina_indicator.fields.invturn_days]
+description = "存货周转天数。"
+
+[datasets.fina_indicator.fields.arturn_days]
+description = "应收账款周转天数。"
+
+[datasets.fina_indicator.fields.inv_turn]
+description = "存货周转率。"
+
+[datasets.fina_indicator.fields.ar_turn]
+description = "应收账款周转率。"
+
+[datasets.fina_indicator.fields.ca_turn]
+description = "流动资产周转率。"
+
+[datasets.fina_indicator.fields.fa_turn]
+description = "固定资产周转率。"
+
+[datasets.fina_indicator.fields.assets_turn]
+description = "总资产周转率。"
+
+[datasets.fina_indicator.fields.op_income]
+description = "营业利润（财务指标口径）。"
+
+[datasets.fina_indicator.fields.valuechange_income]
+description = "公允价值变动收益。"
+
+[datasets.fina_indicator.fields.interst_income]
+description = "利息收入（财务指标口径）。"
+
+[datasets.fina_indicator.fields.daa]
+description = "折旧与摊销。"
+
+[datasets.fina_indicator.fields.ebit]
+description = "息税前利润。"
+
+[datasets.fina_indicator.fields.ebitda]
+description = "息税折旧摊销前利润。"
+
+[datasets.fina_indicator.fields.fcff]
+description = "企业自由现金流。"
+
+[datasets.fina_indicator.fields.fcfe]
+description = "股权自由现金流。"
+
+[datasets.fina_indicator.fields.current_exint]
+description = "流动有息负债。"
+
+[datasets.fina_indicator.fields.noncurrent_exint]
+description = "非流动有息负债。"
+
+[datasets.fina_indicator.fields.interestdebt]
+description = "有息负债。"
+
+[datasets.fina_indicator.fields.netdebt]
+description = "净负债。"
+
+[datasets.fina_indicator.fields.tangible_asset]
+description = "有形资产。"
+
+[datasets.fina_indicator.fields.working_capital]
+description = "营运资金。"
+
+[datasets.fina_indicator.fields.networking_capital]
+description = "净营运资金。"
+
+[datasets.fina_indicator.fields.invest_capital]
+description = "投入资本。"
+
+[datasets.fina_indicator.fields.retained_earnings]
+description = "留存收益。"
+
+[datasets.fina_indicator.fields.diluted2_eps]
+description = "稀释每股收益（另一口径）。"
+
+[datasets.fina_indicator.fields.bps]
+description = "每股净资产。"
+
+[datasets.fina_indicator.fields.ocfps]
+description = "每股经营现金流。"
+
+[datasets.fina_indicator.fields.retainedps]
+description = "每股留存收益。"
+
+[datasets.fina_indicator.fields.cfps]
+description = "每股现金流。"
+
+[datasets.fina_indicator.fields.ebit_ps]
+description = "每股息税前利润。"
+
+[datasets.fina_indicator.fields.fcff_ps]
+description = "每股企业自由现金流。"
+
+[datasets.fina_indicator.fields.fcfe_ps]
+description = "每股股权自由现金流。"
+
+[datasets.fina_indicator.fields.netprofit_margin]
+description = "销售净利率。"
+
+[datasets.fina_indicator.fields.grossprofit_margin]
+description = "销售毛利率。"
+
+[datasets.fina_indicator.fields.cogs_of_sales]
+description = "销售成本。"
+
+[datasets.fina_indicator.fields.expense_of_sales]
+description = "销售费用。"
+
+[datasets.fina_indicator.fields.profit_to_gr]
+description = "净利润占营业总收入比。"
+
+[datasets.fina_indicator.fields.saleexp_to_gr]
+description = "销售费用占营业总收入比。"
+
+[datasets.fina_indicator.fields.adminexp_of_gr]
+description = "管理费用占营业总收入比。"
+
+[datasets.fina_indicator.fields.finaexp_of_gr]
+description = "财务费用占营业总收入比。"
+
+[datasets.fina_indicator.fields.impai_ttm]
+description = "资产减值损失（TTM）。"
+
+[datasets.fina_indicator.fields.gc_of_gr]
+description = "营业总成本占营业总收入比。"
+
+[datasets.fina_indicator.fields.op_of_gr]
+description = "营业利润占营业总收入比。"
+
+[datasets.fina_indicator.fields.ebit_of_gr]
+description = "息税前利润占营业总收入比。"
+
+[datasets.fina_indicator.fields.roe]
+description = "净资产收益率。"
+
+[datasets.fina_indicator.fields.roe_waa]
+description = "加权平均净资产收益率。"
+
+[datasets.fina_indicator.fields.roe_dt]
+description = "扣除非经常性损益后的净资产收益率。"
+
+[datasets.fina_indicator.fields.roa]
+description = "总资产收益率。"
+
+[datasets.fina_indicator.fields.npta]
+description = "总资产净利率。"
+
+[datasets.fina_indicator.fields.roic]
+description = "投入资本回报率。"
+
+[datasets.fina_indicator.fields.roe_yearly]
+description = "年化净资产收益率。"
+
+[datasets.fina_indicator.fields.roa2_yearly]
+description = "年化总资产收益率。"
+
+[datasets.fina_indicator.fields.roe_avg]
+description = "平均净资产收益率。"
+
+[datasets.fina_indicator.fields.opincome_of_ebt]
+description = "营业利润占利润总额比。"
+
+[datasets.fina_indicator.fields.investincome_of_ebt]
+description = "投资收益占利润总额比。"
+
+[datasets.fina_indicator.fields.n_op_profit_of_ebt]
+description = "非营业利润占利润总额比。"
+
+[datasets.fina_indicator.fields.tax_to_ebt]
+description = "所得税占利润总额比。"
+
+[datasets.fina_indicator.fields.dtprofit_to_profit]
+description = "扣非利润占净利润比。"
+
+[datasets.fina_indicator.fields.salescash_to_or]
+description = "销售商品提供劳务收到的现金占营业收入比。"
+
+[datasets.fina_indicator.fields.ocf_to_or]
+description = "经营现金净流量占营业收入比。"
+
+[datasets.fina_indicator.fields.ocf_to_opincome]
+description = "经营现金净流量占营业利润比。"
+
+[datasets.fina_indicator.fields.capitalized_to_da]
+description = "资本化支出占折旧摊销比。"
+
+[datasets.fina_indicator.fields.debt_to_assets]
+description = "资产负债率。"
+
+[datasets.fina_indicator.fields.assets_to_eqt]
+description = "权益乘数（总资产/股东权益）。"
+
+[datasets.fina_indicator.fields.dp_assets_to_eqt]
+description = "归属母公司股东权益对应的权益乘数。"
+
+[datasets.fina_indicator.fields.ca_to_assets]
+description = "流动资产占总资产比。"
+
+[datasets.fina_indicator.fields.nca_to_assets]
+description = "非流动资产占总资产比。"
+
+[datasets.fina_indicator.fields.tbassets_to_totalassets]
+description = "有形资产占总资产比。"
+
+[datasets.fina_indicator.fields.int_to_talcap]
+description = "有息负债占总资本比。"
+
+[datasets.fina_indicator.fields.eqt_to_talcapital]
+description = "股东权益占总资本比。"
+
+[datasets.fina_indicator.fields.currentdebt_to_debt]
+description = "流动负债占债务比。"
+
+[datasets.fina_indicator.fields.longdeb_to_debt]
+description = "长期负债占债务比。"
+
+[datasets.fina_indicator.fields.ocf_to_shortdebt]
+description = "经营现金净流量占短期债务比。"
+
+[datasets.fina_indicator.fields.debt_to_eqt]
+description = "产权比率（负债/股东权益）。"
+
+[datasets.fina_indicator.fields.eqt_to_debt]
+description = "股东权益占负债比。"
+
+[datasets.fina_indicator.fields.eqt_to_interestdebt]
+description = "股东权益占有息负债比。"
+
+[datasets.fina_indicator.fields.tangibleasset_to_debt]
+description = "有形资产/负债合计。"
+
+[datasets.fina_indicator.fields.tangasset_to_intdebt]
+description = "有形资产/有息负债。"
+
+[datasets.fina_indicator.fields.tangibleasset_to_netdebt]
+description = "有形资产/净负债。"
+
+[datasets.fina_indicator.fields.ocf_to_debt]
+description = "经营现金净流量/负债合计。"
+
+[datasets.fina_indicator.fields.ocf_to_interestdebt]
+description = "经营现金净流量/有息负债。"
+
+[datasets.fina_indicator.fields.ocf_to_netdebt]
+description = "经营现金净流量/净负债。"
+
+[datasets.fina_indicator.fields.ebit_to_interest]
+description = "利息保障倍数。"
+
+[datasets.fina_indicator.fields.longdebt_to_workingcapital]
+description = "长期负债/营运资金。"
+
+[datasets.fina_indicator.fields.ebitda_to_debt]
+description = "EBITDA/负债合计。"
+
+[datasets.fina_indicator.fields.turn_days]
+description = "营业周期（天）。"
+
+[datasets.fina_indicator.fields.roa_yearly]
+description = "年化总资产收益率。"
+
+[datasets.fina_indicator.fields.roa_dp]
+description = "扣非总资产收益率。"
+
+[datasets.fina_indicator.fields.fixed_assets]
+description = "固定资产。"
+
+[datasets.fina_indicator.fields.profit_prefin_exp]
+description = "财务费用前利润。"
+
+[datasets.fina_indicator.fields.non_op_profit]
+description = "非营业利润。"
+
+[datasets.fina_indicator.fields.op_to_ebt]
+description = "营业利润/利润总额。"
+
+[datasets.fina_indicator.fields.nop_to_ebt]
+description = "非营业利润/利润总额。"
+
+[datasets.fina_indicator.fields.ocf_to_profit]
+description = "经营现金净流量/净利润。"
+
+[datasets.fina_indicator.fields.cash_to_liqdebt]
+description = "现金/流动负债。"
+
+[datasets.fina_indicator.fields.cash_to_liqdebt_withinterest]
+description = "现金及现金等价物/含息流动负债。"
+
+[datasets.fina_indicator.fields.op_to_liqdebt]
+description = "营业利润/流动负债。"
+
+[datasets.fina_indicator.fields.op_to_debt]
+description = "营业利润/负债合计。"
+
+[datasets.fina_indicator.fields.roic_yearly]
+description = "年化投入资本回报率。"
+
+[datasets.fina_indicator.fields.total_fa_trun]
+description = "固定资产周转率。"
+
+[datasets.fina_indicator.fields.profit_to_op]
+description = "净利润/营业利润。"
+
+[datasets.fina_indicator.fields.q_opincome]
+description = "单季度营业利润。"
+
+[datasets.fina_indicator.fields.q_investincome]
+description = "单季度投资收益。"
+
+[datasets.fina_indicator.fields.q_dtprofit]
+description = "单季度扣非净利润。"
+
+[datasets.fina_indicator.fields.q_eps]
+description = "单季度基本每股收益。"
+
+[datasets.fina_indicator.fields.q_netprofit_margin]
+description = "单季度销售净利率。"
+
+[datasets.fina_indicator.fields.q_gsprofit_margin]
+description = "单季度销售毛利率。"
+
+[datasets.fina_indicator.fields.q_exp_to_sales]
+description = "单季度期间费用占营收比。"
+
+[datasets.fina_indicator.fields.q_profit_to_gr]
+description = "单季度净利润占营收比。"
+
+[datasets.fina_indicator.fields.q_saleexp_to_gr]
+description = "单季度销售费用占营收比。"
+
+[datasets.fina_indicator.fields.q_adminexp_to_gr]
+description = "单季度管理费用占营收比。"
+
+[datasets.fina_indicator.fields.q_finaexp_to_gr]
+description = "单季度财务费用占营收比。"
+
+[datasets.fina_indicator.fields.q_impair_to_gr_ttm]
+description = "单季度资产减值损失占营收比（TTM）。"
+
+[datasets.fina_indicator.fields.q_gc_to_gr]
+description = "单季度营业总成本占营收比。"
+
+[datasets.fina_indicator.fields.q_op_to_gr]
+description = "单季度营业利润占营收比。"
+
+[datasets.fina_indicator.fields.q_roe]
+description = "单季度净资产收益率。"
+
+[datasets.fina_indicator.fields.q_dt_roe]
+description = "单季度扣非净资产收益率。"
+
+[datasets.fina_indicator.fields.q_npta]
+description = "单季度总资产净利率。"
+
+[datasets.fina_indicator.fields.q_opincome_to_ebt]
+description = "单季度营业利润占利润总额比。"
+
+[datasets.fina_indicator.fields.q_investincome_to_ebt]
+description = "单季度投资收益占利润总额比。"
+
+[datasets.fina_indicator.fields.q_dtprofit_to_profit]
+description = "单季度扣非利润占净利润比。"
+
+[datasets.fina_indicator.fields.q_salescash_to_or]
+description = "单季度销售收现占营收比。"
+
+[datasets.fina_indicator.fields.q_ocf_to_sales]
+description = "单季度经营现金净流量占营收比。"
+
+[datasets.fina_indicator.fields.q_ocf_to_or]
+description = "单季度经营现金净流量占营收比。"
+
+[datasets.fina_indicator.fields.basic_eps_yoy]
+description = "基本每股收益同比。"
+
+[datasets.fina_indicator.fields.dt_eps_yoy]
+description = "稀释每股收益同比。"
+
+[datasets.fina_indicator.fields.cfps_yoy]
+description = "每股现金流同比。"
+
+[datasets.fina_indicator.fields.op_yoy]
+description = "营业利润同比。"
+
+[datasets.fina_indicator.fields.ebt_yoy]
+description = "利润总额同比。"
+
+[datasets.fina_indicator.fields.netprofit_yoy]
+description = "净利润同比。"
+
+[datasets.fina_indicator.fields.dt_netprofit_yoy]
+description = "扣非净利润同比。"
+
+[datasets.fina_indicator.fields.ocf_yoy]
+description = "经营现金净流量同比。"
+
+[datasets.fina_indicator.fields.roe_yoy]
+description = "净资产收益率同比。"
+
+[datasets.fina_indicator.fields.bps_yoy]
+description = "每股净资产同比。"
+
+[datasets.fina_indicator.fields.assets_yoy]
+description = "总资产同比。"
+
+[datasets.fina_indicator.fields.eqt_yoy]
+description = "股东权益同比。"
+
+[datasets.fina_indicator.fields.tr_yoy]
+description = "营业总收入同比。"
+
+[datasets.fina_indicator.fields.or_yoy]
+description = "营业收入同比。"
+
+[datasets.fina_indicator.fields.q_gr_yoy]
+description = "单季度营收同比。"
+
+[datasets.fina_indicator.fields.q_gr_qoq]
+description = "单季度营收环比。"
+
+[datasets.fina_indicator.fields.q_sales_yoy]
+description = "单季度销售同比。"
+
+[datasets.fina_indicator.fields.q_sales_qoq]
+description = "单季度销售环比。"
+
+[datasets.fina_indicator.fields.q_op_yoy]
+description = "单季度营业利润同比。"
+
+[datasets.fina_indicator.fields.q_op_qoq]
+description = "单季度营业利润环比。"
+
+[datasets.fina_indicator.fields.q_profit_yoy]
+description = "单季度净利润同比。"
+
+[datasets.fina_indicator.fields.q_profit_qoq]
+description = "单季度净利润环比。"
+
+[datasets.fina_indicator.fields.q_netprofit_yoy]
+description = "单季度归母净利润同比。"
+
+[datasets.fina_indicator.fields.q_netprofit_qoq]
+description = "单季度归母净利润环比。"
+
+[datasets.fina_indicator.fields.equity_yoy]
+description = "净资产同比。"
+
+[datasets.fina_indicator.fields.rd_exp]
+description = "研发费用。"
+
+[datasets.fina_indicator.fields.update_flag]
+description = "更新或修订标记。"
+
+[datasets.express]
+title = "Tushare 业绩快报"
+summary = "业绩快报逻辑数据集；原始表保留公告记录，PIT 宽表使用 `ann_date`。"
+
+[datasets.express.fields.ts_code]
+description = "带交易所后缀的证券代码。"
+
+[datasets.express.fields.ann_date]
+description = "公告日期，也是 PIT 的 disclosure date。"
+
+[datasets.express.fields.end_date]
+description = "业绩对应的报告期。"
+
+[datasets.express.fields.revenue]
+description = "营业收入。"
+
+[datasets.express.fields.operate_profit]
+description = "营业利润。"
+
+[datasets.express.fields.total_profit]
+description = "利润总额。"
+
+[datasets.express.fields.n_income]
+description = "净利润。"
+
+[datasets.express.fields.total_assets]
+description = "总资产。"
+
+[datasets.express.fields.total_hldr_eqy_exc_min_int]
+description = "归属于母公司股东的所有者权益。"
+
+[datasets.express.fields.diluted_eps]
+description = "稀释每股收益。"
+
+[datasets.express.fields.diluted_roe]
+description = "稀释净资产收益率。"
+
+[datasets.express.fields.yoy_net_profit]
+description = "净利润同比。"
+
+[datasets.express.fields.bps]
+description = "每股净资产。"
+
+[datasets.express.fields.yoy_sales]
+description = "营业收入同比。"
+
+[datasets.express.fields.yoy_op]
+description = "营业利润同比。"
+
+[datasets.express.fields.yoy_tp]
+description = "利润总额同比。"
+
+[datasets.express.fields.yoy_dedu_np]
+description = "扣非净利润同比。"
+
+[datasets.express.fields.yoy_eps]
+description = "每股收益同比。"
+
+[datasets.express.fields.yoy_roe]
+description = "净资产收益率同比。"
+
+[datasets.express.fields.growth_assets]
+description = "总资产同比。"
+
+[datasets.express.fields.yoy_equity]
+description = "股东权益同比。"
+
+[datasets.express.fields.growth_bps]
+description = "每股净资产同比。"
+
+[datasets.express.fields.or_last_year]
+description = "去年同期营业收入。"
+
+[datasets.express.fields.op_last_year]
+description = "去年同期营业利润。"
+
+[datasets.express.fields.tp_last_year]
+description = "去年同期利润总额。"
+
+[datasets.express.fields.np_last_year]
+description = "去年同期净利润。"
+
+[datasets.express.fields.eps_last_year]
+description = "去年同期每股收益。"
+
+[datasets.express.fields.open_net_assets]
+description = "期初净资产。"
+
+[datasets.express.fields.open_bps]
+description = "期初每股净资产。"
+
+[datasets.express.fields.perf_summary]
+description = "业绩简要说明。"
+
+[datasets.express.fields.is_audit]
+description = "是否经过审计的标记。"
+
+[datasets.express.fields.remark]
+description = "备注。"
+
+[datasets.forecast]
+title = "Tushare 业绩预告"
+summary = "业绩预告逻辑数据集；PIT 使用 `ann_date`，并以首次公告日期参与修订优先级。"
+
+[datasets.forecast.fields.ts_code]
+description = "带交易所后缀的证券代码。"
+
+[datasets.forecast.fields.ann_date]
+description = "公告日期，也是 PIT 的 disclosure date。"
+
+[datasets.forecast.fields.end_date]
+description = "业绩预告对应的报告期。"
+
+[datasets.forecast.fields.type]
+description = "业绩预告类型。"
+
+[datasets.forecast.fields.p_change_min]
+description = "预告净利润变动幅度下限（%）。"
+
+[datasets.forecast.fields.p_change_max]
+description = "预告净利润变动幅度上限（%）。"
+
+[datasets.forecast.fields.net_profit_min]
+description = "预告净利润下限。"
+
+[datasets.forecast.fields.net_profit_max]
+description = "预告净利润上限。"
+
+[datasets.forecast.fields.last_parent_net]
+description = "上年同期归母净利润。"
+
+[datasets.forecast.fields.first_ann_date]
+description = "首次公告日期。"
+
+[datasets.forecast.fields.summary]
+description = "业绩预告内容摘要。"
+
+[datasets.forecast.fields.change_reason]
+description = "业绩变动原因说明。"
+
+[datasets.stk_holdernumber]
+title = "Tushare 股东人数"
+summary = "股东人数原始表按统计截止日筛选并保留公告记录；PIT 日频面板使用公告日。"
+
+[datasets.stk_holdernumber.fields.ts_code]
+description = "带交易所后缀的证券代码。"
+
+[datasets.stk_holdernumber.fields.ann_date]
+description = "股东人数公告日期，也是 PIT 的 disclosure date。"
+
+[datasets.stk_holdernumber.fields.end_date]
+description = "股东人数统计截止日期。"
+
+[datasets.stk_holdernumber.fields.holder_num]
+description = "股东户数。"
+
+[datasets.ci_index_member]
+title = "Tushare 中信行业成分"
+summary = "`get_table()` 保留 `in_date`/`out_date` 原始区间，`get_panel()` 才将中信行业成分区间展开到开市日。"
+
+[datasets.ci_index_member.fields.l1_code]
+description = "一级行业代码。"
+
+[datasets.ci_index_member.fields.l1_name]
+description = "一级行业名称。"
+
+[datasets.ci_index_member.fields.l2_code]
+description = "二级行业代码。"
+
+[datasets.ci_index_member.fields.l2_name]
+description = "二级行业名称。"
+
+[datasets.ci_index_member.fields.l3_code]
+description = "三级行业代码。"
+
+[datasets.ci_index_member.fields.l3_name]
+description = "三级行业名称。"
+
+[datasets.ci_index_member.fields.ts_code]
+description = "带交易所后缀的成分证券代码。"
+
+[datasets.ci_index_member.fields.name]
+description = "成分证券名称。"
+
+[datasets.ci_index_member.fields.in_date]
+description = "纳入行业成分的日期。"
+
+[datasets.ci_index_member.fields.out_date]
+description = "移出行业成分的日期；空值表示仍在成分中。"
+
+[datasets.ci_index_member.fields.is_new]
+description = "当前成分与历史成分标记。"
+
+[datasets.index_member_all]
+title = "Tushare 申万行业成分"
+summary = "`get_table()` 保留 `in_date`/`out_date` 原始区间，`get_panel()` 才将申万行业成分区间展开到开市日。"
+
+[datasets.index_member_all.fields.l1_code]
+description = "一级行业代码。"
+
+[datasets.index_member_all.fields.l1_name]
+description = "一级行业名称。"
+
+[datasets.index_member_all.fields.l2_code]
+description = "二级行业代码。"
+
+[datasets.index_member_all.fields.l2_name]
+description = "二级行业名称。"
+
+[datasets.index_member_all.fields.l3_code]
+description = "三级行业代码。"
+
+[datasets.index_member_all.fields.l3_name]
+description = "三级行业名称。"
+
+[datasets.index_member_all.fields.ts_code]
+description = "带交易所后缀的成分证券代码。"
+
+[datasets.index_member_all.fields.name]
+description = "成分证券名称。"
+
+[datasets.index_member_all.fields.in_date]
+description = "纳入行业成分的日期。"
+
+[datasets.index_member_all.fields.out_date]
+description = "移出行业成分的日期；空值表示仍在成分中。"
+
+[datasets.index_member_all.fields.is_new]
+description = "当前成分与历史成分标记。"
+
+[datasets.stk_holdertrade]
+title = "Tushare 股东增减持"
+summary = "股东增减持为一对多事件长表，默认以公告日为时间并只支持 `get_table()`。"
+
+[datasets.stk_holdertrade.fields.ts_code]
+description = "带交易所后缀的证券代码。"
+
+[datasets.stk_holdertrade.fields.ann_date]
+description = "增减持事件公告日期。"
+
+[datasets.stk_holdertrade.fields.holder_name]
+description = "股东名称。"
+
+[datasets.stk_holdertrade.fields.holder_type]
+description = "股东类型。"
+
+[datasets.stk_holdertrade.fields.in_de]
+description = "变动方向：增持或减持。"
+
+[datasets.stk_holdertrade.fields.change_vol]
+description = "本次增减持股数。"
+
+[datasets.stk_holdertrade.fields.change_ratio]
+description = "本次变动比例（%）。"
+
+[datasets.stk_holdertrade.fields.after_share]
+description = "变动后持股数。"
+
+[datasets.stk_holdertrade.fields.after_ratio]
+description = "变动后持股比例（%）。"
+
+[datasets.stk_holdertrade.fields.avg_price]
+description = "本次增减持均价。"
+
+[datasets.stk_holdertrade.fields.total_share]
+description = "本次变动合计股数。"
+
+[datasets.stk_holdertrade.fields.begin_date]
+description = "增减持区间开始日期。"
+
+[datasets.stk_holdertrade.fields.close_date]
+description = "增减持区间结束日期。"
