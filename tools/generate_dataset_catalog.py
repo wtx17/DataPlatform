@@ -18,11 +18,11 @@ if str(ROOT.parent) not in sys.path:
     sys.path.insert(0, str(ROOT.parent))
 
 from quant_data.backends.clickhouse_catalog import MINGHU_TABLE_COLUMN_TYPES  # noqa: E402
-from quant_data.backends.tushare import _TUSHARE_DATASETS  # noqa: E402
 from quant_data.backends.tushare_catalog import (  # noqa: E402
     DisclosureSemantics,
     EventSemantics,
     MembershipSemantics,
+    TUSHARE_DATASETS,
 )
 from quant_data.initialize import (  # noqa: E402
     clickhouse_dataset_specs,
@@ -110,7 +110,7 @@ def collect_references() -> tuple[DatasetReference, ...]:
 
     for tushare_spec in tushare_dataset_specs():
         catalog_name = tushare_spec.dataset or tushare_spec.name
-        catalog = _TUSHARE_DATASETS.get(catalog_name)
+        catalog = TUSHARE_DATASETS.get(catalog_name)
         if catalog is None:
             raise CatalogError(
                 f"Initialized Tushare dataset {catalog_name!r} has no local schema catalog"

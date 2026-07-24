@@ -19,7 +19,7 @@ from quant_data import (
     TushareConfig,
     TushareParquetDatasetSpec,
 )
-from quant_data.backends.tushare import _TUSHARE_DATASETS
+from quant_data.backends.tushare_catalog import TUSHARE_DATASETS
 from quant_data.initialize import (
     initialize_data_client,
     tushare_parquet_dataset_specs,
@@ -57,7 +57,7 @@ class CalendarFactory:
 
 def _archive_schema(dataset: str) -> pa.Schema:
     fields: list[pa.Field] = []
-    for field in _TUSHARE_DATASETS[dataset].schema:
+    for field in TUSHARE_DATASETS[dataset].schema:
         data_type = pa.string() if pa.types.is_date32(field.type) else field.type
         fields.append(pa.field(field.name, data_type))
     return pa.schema(fields)
@@ -479,12 +479,12 @@ def test_local_initialization_registers_standard_names_without_token(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     root = tmp_path / "archive"
-    for dataset in _TUSHARE_DATASETS:
+    for dataset in TUSHARE_DATASETS:
         write_archive(root, dataset, [])
     monkeypatch.delenv("MISSING_LOCAL_CALENDAR_TOKEN", raising=False)
 
     specs = tushare_parquet_dataset_specs(root, calendar_connection="calendar")
-    assert [spec.name for spec in specs] == list(_TUSHARE_DATASETS)
+    assert [spec.name for spec in specs] == list(TUSHARE_DATASETS)
     client = initialize_data_client(
         audit_dir=tmp_path / "audit",
         register_clickhouse=False,

@@ -7,6 +7,8 @@ from typing import Literal, Mapping, TypeAlias
 
 import pyarrow as pa
 
+from .tushare_schemas import TUSHARE_SCHEMAS
+
 
 RouteUniverse: TypeAlias = Literal["instrument_only", "whole_market", "both"]
 
@@ -107,7 +109,7 @@ class TushareDatasetCatalog:
 def build_tushare_catalogs(
     schemas: Mapping[str, pa.Schema],
 ) -> dict[str, TushareDatasetCatalog]:
-    """Build the immutable logical catalog from backend-owned Arrow schemas."""
+    """Build the immutable logical catalog from version-controlled Arrow schemas."""
 
     def financial(
         name: str,
@@ -294,6 +296,9 @@ def _unique(values: tuple[str, ...]) -> tuple[str, ...]:
     return tuple(result)
 
 
+TUSHARE_DATASETS = build_tushare_catalogs(TUSHARE_SCHEMAS)
+
+
 __all__ = [
     "DateRangeQuery",
     "DisclosureSemantics",
@@ -303,6 +308,7 @@ __all__ = [
     "PeriodQuery",
     "TushareApiRoute",
     "TushareDatasetCatalog",
+    "TUSHARE_DATASETS",
     "UnboundedQuery",
     "build_tushare_catalogs",
 ]

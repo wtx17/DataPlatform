@@ -291,7 +291,16 @@
 | `prfshare_payable_dvd` | `double` | `get_panel()` / `get_table()` 可请求值 | 应付优先股股利。 |
 | `comshare_payable_dvd` | `double` | `get_panel()` / `get_table()` 可请求值 | 应付普通股股利。 |
 | `capit_comstock_div` | `double` | `get_panel()` / `get_table()` 可请求值 | 转作股本的普通股股利。 |
+| `net_after_nr_lp_correct` | `double` | `get_panel()` / `get_table()` 可请求值 | 扣除非经常性损益后的净利润（更正前）。 |
+| `credit_impa_loss` | `double` | `get_panel()` / `get_table()` 可请求值 | 信用减值损失。 |
+| `net_expo_hedging_benefits` | `double` | `get_panel()` / `get_table()` 可请求值 | 净敞口套期收益。 |
+| `oth_impair_loss_assets` | `double` | `get_panel()` / `get_table()` 可请求值 | 其他资产减值损失。 |
+| `total_opcost` | `double` | `get_panel()` / `get_table()` 可请求值 | 营业总成本（二）。 |
+| `amodcost_fin_assets` | `double` | `get_panel()` / `get_table()` 可请求值 | 以摊余成本计量的金融资产终止确认收益。 |
+| `oth_income` | `double` | `get_panel()` / `get_table()` 可请求值 | 其他收益。 |
+| `asset_disp_income` | `double` | `get_panel()` / `get_table()` 可请求值 | 资产处置收益。 |
 | `continued_net_profit` | `double` | `get_panel()` / `get_table()` 可请求值 | 持续经营净利润。 |
+| `end_net_profit` | `double` | `get_panel()` / `get_table()` 可请求值 | 终止经营净利润。 |
 | `update_flag` | `string` | `get_table()` 自动身份列；`get_panel()` 可请求值 | 更新或修订标记。 |
 
 <a id="dataset-balancesheet"></a>
@@ -449,6 +458,12 @@
 | `long_pay_total` | `double` | `get_panel()` / `get_table()` 可请求值 | 长期应付款合计。 |
 | `debt_invest` | `double` | `get_panel()` / `get_table()` 可请求值 | 债权投资。 |
 | `oth_debt_invest` | `double` | `get_panel()` / `get_table()` 可请求值 | 其他债权投资。 |
+| `oth_eq_invest` | `double` | `get_panel()` / `get_table()` 可请求值 | 其他权益工具投资。 |
+| `oth_illiq_fin_assets` | `double` | `get_panel()` / `get_table()` 可请求值 | 其他非流动金融资产。 |
+| `oth_eq_ppbond` | `double` | `get_panel()` / `get_table()` 可请求值 | 其他权益工具：永续债。 |
+| `receiv_financing` | `double` | `get_panel()` / `get_table()` 可请求值 | 应收款项融资。 |
+| `use_right_assets` | `double` | `get_panel()` / `get_table()` 可请求值 | 使用权资产。 |
+| `lease_liab` | `double` | `get_panel()` / `get_table()` 可请求值 | 租赁负债。 |
 | `contract_assets` | `double` | `get_panel()` / `get_table()` 可请求值 | 合同资产。 |
 | `contract_liab` | `double` | `get_panel()` / `get_table()` 可请求值 | 合同负债。 |
 | `accounts_receiv_bill` | `double` | `get_panel()` / `get_table()` 可请求值 | 应收款项融资（含应收票据）。 |

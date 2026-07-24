@@ -613,8 +613,35 @@ description = "应付普通股股利。"
 [datasets.income.fields.capit_comstock_div]
 description = "转作股本的普通股股利。"
 
+[datasets.income.fields.net_after_nr_lp_correct]
+description = "扣除非经常性损益后的净利润（更正前）。"
+
+[datasets.income.fields.credit_impa_loss]
+description = "信用减值损失。"
+
+[datasets.income.fields.net_expo_hedging_benefits]
+description = "净敞口套期收益。"
+
+[datasets.income.fields.oth_impair_loss_assets]
+description = "其他资产减值损失。"
+
+[datasets.income.fields.total_opcost]
+description = "营业总成本（二）。"
+
+[datasets.income.fields.amodcost_fin_assets]
+description = "以摊余成本计量的金融资产终止确认收益。"
+
+[datasets.income.fields.oth_income]
+description = "其他收益。"
+
+[datasets.income.fields.asset_disp_income]
+description = "资产处置收益。"
+
 [datasets.income.fields.continued_net_profit]
 description = "持续经营净利润。"
+
+[datasets.income.fields.end_net_profit]
+description = "终止经营净利润。"
 
 [datasets.income.fields.update_flag]
 description = "更新或修订标记。"
@@ -1057,6 +1084,24 @@ description = "债权投资。"
 
 [datasets.balancesheet.fields.oth_debt_invest]
 description = "其他债权投资。"
+
+[datasets.balancesheet.fields.oth_eq_invest]
+description = "其他权益工具投资。"
+
+[datasets.balancesheet.fields.oth_illiq_fin_assets]
+description = "其他非流动金融资产。"
+
+[datasets.balancesheet.fields.oth_eq_ppbond]
+description = "其他权益工具：永续债。"
+
+[datasets.balancesheet.fields.receiv_financing]
+description = "应收款项融资。"
+
+[datasets.balancesheet.fields.use_right_assets]
+description = "使用权资产。"
+
+[datasets.balancesheet.fields.lease_liab]
+description = "租赁负债。"
 
 [datasets.balancesheet.fields.contract_assets]
 description = "合同资产。"
